@@ -1,2961 +1,1645 @@
-# media.py - Ultimate Open Source Media Bot 🎬
-# Single File - God Level Telegram Bot
-# Host on Render Web Service (Free Tier)
+# media.py - Ultimate Open Source Media Bot
+# EVERYTHING INSIDE TELEGRAM - NO EXTERNAL LINKS
+# Stylish Unicode Fonts + God Level Design
 
 import os
 import logging
 import asyncio
 import aiohttp
-import html
 import random
-import string
-import tempfile
+import re
+import io
 from datetime import datetime
-from urllib.parse import quote_plus, urlencode
+from urllib.parse import quote_plus
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    InputMediaPhoto, BotCommand
+    BotCommand, InputMediaPhoto, InputMediaVideo, InputMediaAudio
 )
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
-    MessageHandler, filters, ContextTypes, ConversationHandler
+    MessageHandler, filters, ContextTypes
 )
 from telegram.constants import ParseMode, ChatAction
 from aiohttp import web
 
-# ═══════════════════════════════════════════════════════════
-# 📋 CONFIGURATION
-# ═══════════════════════════════════════════════════════════
+# ══════════════════════════════════════════
+#  CONFIGURATION
+# ══════════════════════════════════════════
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 PORT = int(os.environ.get("PORT", 10000))
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")  # e.g. https://your-app.onrender.com
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
 
-# Logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# ═══════════════════════════════════════════════════════════
-# 🎨 STYLISH SYMBOLS & FONTS COLLECTION
-# ═══════════════════════════════════════════════════════════
+# ══════════════════════════════════════════
+#  𝗦𝗧𝗬𝗟𝗜𝗦𝗛 𝗙𝗢𝗡𝗧𝗦 & 𝗦𝗬𝗠𝗕𝗢𝗟𝗦
+# ══════════════════════════════════════════
 
-SYM = {
-    # Status & Indicators
-    "star": "✦", "star2": "✧", "diamond": "◆", "diamond2": "◇",
-    "circle": "●", "circle2": "○", "dot": "•", "arrow": "➤",
-    "arrow2": "➜", "arrow3": "➥", "arrow4": "⟫", "check": "✅",
-    "cross": "❌", "fire": "🔥", "spark": "✨", "lightning": "⚡",
-    "crown": "👑", "trophy": "🏆", "gem": "💎", "heart": "❤️",
-    "rocket": "🚀", "globe": "🌍", "link": "🔗", "lock": "🔒",
-    "unlock": "🔓", "key": "🔑", "magnify": "🔍", "bell": "🔔",
-    "pin": "📌", "clip": "📎", "book": "📖", "scroll": "📜",
-    "folder": "📁", "package": "📦", "cd": "💿", "film": "🎬",
-    "camera": "📷", "tv": "📺", "radio": "📻", "headphone": "🎧",
-    "mic": "🎤", "art": "🎨", "palette": "🎭", "music": "🎵",
-    "note": "🎶", "game": "🎮", "dice": "🎲", "puzzle": "🧩",
-    "robot": "🤖", "alien": "👽", "ghost": "👻", "skull": "💀",
-    "eye": "👁️", "brain": "🧠", "dna": "🧬", "atom": "⚛️",
-    "wave": "〰️", "infinity": "♾️", "yin": "☯️", "peace": "☮️",
-    
-    # Decorative Lines & Borders
-    "line": "━━━━━━━━━━━━━━━━━━",
-    "line2": "═══════════════════",
-    "line3": "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
-    "line4": "◈━━━━━━━━━━━━━━━◈",
-    "line5": "╔══════════════════╗",
-    "line6": "╚══════════════════╝",
-    "line7": "┃",
-    "dotline": "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈",
-    
-    # Categories
-    "movie": "🎬", "video": "📹", "image": "🖼️", "wallpaper": "🌄",
-    "anime": "🌸", "music_cat": "🎵", "book_cat": "📚", "game_cat": "🎮",
-    "science": "🔬", "space": "🚀", "news": "📰", "edu": "🎓",
-    "code": "💻", "design": "🎨", "photo": "📸", "audio": "🔊",
-    "doc": "📄", "data": "📊", "ai": "🤖", "three_d": "🧊",
+def bold_sans(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    styled = '𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵'
+    return text.translate(str.maketrans(normal, styled))
+
+def italic_sans(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    styled = '𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻'
+    return text.translate(str.maketrans(normal, styled))
+
+def bold_italic(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    styled = '𝘼𝘽𝘾𝘿𝙀𝙁𝙂𝙃𝙄𝙅𝙆𝙇𝙈𝙉𝙊𝙋𝙌𝙍𝙎𝙏𝙐𝙑𝙒𝙓𝙔𝙕𝙖𝙗𝙘𝙙𝙚𝙛𝙜𝙝𝙞𝙟𝙠𝙡𝙢𝙣𝙤𝙥𝙦𝙧𝙨𝙩𝙪𝙫𝙬𝙭𝙮𝙯'
+    return text.translate(str.maketrans(normal, styled))
+
+def mono_font(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    styled = '𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿'
+    return text.translate(str.maketrans(normal, styled))
+
+def script_font(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    styled = '𝒜ℬ𝒞𝒟ℰℱ𝒢ℋℐ𝒥𝒦ℒℳ𝒩𝒪𝒫𝒬ℛ𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝒶𝒷𝒸𝒹ℯ𝒻ℊ𝒽𝒾𝒿𝓀𝓁𝓂𝓃ℴ𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏'
+    return text.translate(str.maketrans(normal, styled))
+
+def double_font(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    styled = '𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡'
+    return text.translate(str.maketrans(normal, styled))
+
+def fraktur_font(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    styled = '𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷'
+    return text.translate(str.maketrans(normal, styled))
+
+def circled(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    styled = 'ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ'
+    return text.translate(str.maketrans(normal, styled))
+
+def squared(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    styled = '🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉'
+    return text.upper().translate(str.maketrans(normal, styled))
+
+def neg_squared(text):
+    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    styled = '🅰🅱🅲🅳🅴🅵🅶🅷🅸🅹🅺🅻🅼🅽🅾🅿🆀🆁🆂🆃🆄🆅🆆🆇🆈🆉'
+    return text.upper().translate(str.maketrans(normal, styled))
+
+# ═══ Decorative Borders & Symbols ═══
+
+TOP    = "╔══════════════════════════╗"
+BOT    = "╚══════════════════════════╝"
+SIDE   = "║"
+LINE   = "━━━━━━━━━━━━━━━━━━━━━━━━━━"
+LINE2  = "◈━━━━━━━━━━━━━━━━━━━━━━◈"
+LINE3  = "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰"
+DOT_LN = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+SPARK  = "╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍"
+
+# Symbols
+S = {
+    "crown": "👑", "fire": "🔥", "star": "✦", "star2": "★",
+    "diamond": "◆", "diamond2": "◇", "spark": "✨", "bolt": "⚡",
+    "rocket": "🚀", "gem": "💎", "heart": "❤️", "check": "✅",
+    "cross": "❌", "warn": "⚠️", "info": "ℹ️", "mag": "🔍",
+    "globe": "🌍", "link": "🔗", "pin": "📌", "key": "🔑",
+    "film": "🎬", "cam": "📷", "vid": "📹", "tv": "📺",
+    "music": "🎵", "mic": "🎤", "head": "🎧", "note": "🎶",
+    "book": "📖", "books": "📚", "scroll": "📜", "doc": "📄",
+    "art": "🎨", "palette": "🖌️", "frame": "🖼️", "photo": "📸",
+    "anime": "🌸", "cherry": "🌸", "sakura": "🎌", "cat": "🐱",
+    "game": "🎮", "dice": "🎲", "puzzle": "🧩", "trophy": "🏆",
+    "code": "💻", "robot": "🤖", "brain": "🧠", "atom": "⚛️",
+    "cube": "🧊", "earth": "🌏", "map": "🗺️", "sun": "☀️",
+    "moon": "🌙", "comet": "☄️", "wave": "🌊", "mount": "🏔️",
+    "tree": "🌲", "flower": "🌺", "leaf": "🍃", "rain": "🌧️",
+    "wall": "🌄", "city": "🏙️", "night": "🌃", "bridge": "🌉",
+    "folder": "📁", "pack": "📦", "cd": "💿", "disk": "💾",
+    "send": "📤", "recv": "📥", "clip": "📎", "bell": "🔔",
+    "eye": "👁️", "point": "👉", "up": "👆", "clap": "👏",
+    "flex": "💪", "pray": "🙏", "cool": "😎", "think": "🤔",
+    "arrow": "➤", "arrow2": "➜", "arrow3": "⟫", "tri": "▸",
+    "dot": "•", "ring": "◉", "sq": "■", "sq2": "▪️",
+    "circle": "●", "circle2": "○", "inf": "♾️", "peace": "☮️",
+    "tick": "✓", "plus": "✚", "x": "✗", "fleur": "⚜️",
 }
 
-def stylish_text(text, style="bold"):
-    """Convert text to stylish Unicode fonts"""
-    styles = {
-        "bold": str.maketrans(
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-            '𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵'
-        ),
-        "italic": str.maketrans(
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-            '𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻'
-        ),
-        "bold_italic": str.maketrans(
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-            '𝘼𝘽𝘾𝘿𝙀𝙁𝙂𝙃𝙄𝙅𝙆𝙇𝙈𝙉𝙊𝙋𝙌𝙍𝙎𝙏𝙐𝙑𝙒𝙓𝙔𝙕𝙖𝙗𝙘𝙙𝙚𝙛𝙜𝙝𝙞𝙟𝙠𝙡𝙢𝙣𝙤𝙥𝙦𝙧𝙨𝙩𝙪𝙫𝙬𝙭𝙮𝙯'
-        ),
-        "mono": str.maketrans(
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-            '𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿'
-        ),
-        "script": str.maketrans(
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-            '𝒜𝐵𝒞𝒟𝐸𝐹𝒢𝐻𝐼𝒥𝒦𝐿𝑀𝒩𝒪𝒫𝒬𝑅𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏'
-        ),
-        "double": str.maketrans(
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-            '𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡'
-        ),
-        "circle": str.maketrans(
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-            'ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ'
-        ),
-        "square": str.maketrans(
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-            '🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉'
-        ),
-        "neg_square": str.maketrans(
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-            '🅰🅱🅲🅳🅴🅵🅶🅷🅸🅹🅺🅻🅼🅽🅾🅿🆀🆁🆂🆃🆄🆅🆆🆇🆈🆉'
-        ),
-    }
-    if style in styles:
-        return text.translate(styles[style])
-    return text
+# ══════════════════════════════════════════
+#  𝗠𝗘𝗗𝗜𝗔 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
+# ══════════════════════════════════════════
 
-# ═══════════════════════════════════════════════════════════
-# 🌐 OPEN SOURCE DATABASE REGISTRY - WORLD'S LARGEST COLLECTION
-# ═══════════════════════════════════════════════════════════
+class MediaDownloader:
+    """Downloads media and sends DIRECTLY in Telegram"""
 
-DATABASES = {
-    # ──────────────────────────────────────────────────────
-    # 🎬 MOVIES & FILMS
-    # ──────────────────────────────────────────────────────
-    "movies": {
-        "icon": "🎬",
-        "title": "𝗠𝗼𝘃𝗶𝗲𝘀 & 𝗙𝗶𝗹𝗺𝘀",
-        "desc": "Free movies, films, documentaries from open databases",
-        "sources": [
-            {
-                "name": "Internet Archive Movies",
-                "icon": "🏛️",
-                "url": "https://archive.org/details/movies",
-                "search_url": "https://archive.org/search?query={query}&and[]=mediatype%3A%22movies%22",
-                "api_url": "https://archive.org/advancedsearch.php?q={query}+mediatype:movies&output=json&rows={limit}&page={page}",
-                "api_type": "archive_org",
-                "desc": "World's largest free movie archive",
-                "license": "Public Domain / Various",
-                "count": "10M+ items"
-            },
-            {
-                "name": "Archive Public Domain Movies",
-                "icon": "🎞️",
-                "url": "https://archive.org/details/publicmovies212",
-                "search_url": "https://archive.org/search?query={query}+collection%3Apublicmovies212&and[]=mediatype%3A%22movies%22",
-                "api_url": "https://archive.org/advancedsearch.php?q={query}+collection:publicmovies212&output=json&rows={limit}&page={page}",
-                "api_type": "archive_org",
-                "desc": "Curated public domain films",
-                "license": "Public Domain",
-                "count": "5000+ films"
-            },
-            {
-                "name": "Archive Feature Films",
-                "icon": "🎭",
-                "url": "https://archive.org/details/feature_films",
-                "search_url": "https://archive.org/search?query={query}+collection%3Afeature_films",
-                "api_url": "https://archive.org/advancedsearch.php?q={query}+collection:feature_films&output=json&rows={limit}&page={page}",
-                "api_type": "archive_org",
-                "desc": "Feature-length free films",
-                "license": "Public Domain",
-                "count": "3000+ films"
-            },
-            {
-                "name": "TMDB (TheMovieDB)",
-                "icon": "🎥",
-                "url": "https://www.themoviedb.org",
-                "search_url": "https://www.themoviedb.org/search?query={query}",
-                "api_url": "https://api.themoviedb.org/3/search/movie?api_key=demo&query={query}&page={page}",
-                "api_type": "tmdb",
-                "desc": "Movie info database (community built)",
-                "license": "CC BY-NC 4.0",
-                "count": "900K+ movies"
-            },
-            {
-                "name": "OMDb API",
-                "icon": "📀",
-                "url": "https://www.omdbapi.com",
-                "search_url": "https://www.omdbapi.com/?s={query}&type=movie",
-                "api_type": "omdb",
-                "desc": "Open movie database API",
-                "license": "CC BY-NC 4.0",
-                "count": "500K+ titles"
-            },
-            {
-                "name": "Wikidata Movies",
-                "icon": "📊",
-                "url": "https://www.wikidata.org",
-                "search_url": "https://www.wikidata.org/w/index.php?search={query}&ns0=1",
-                "api_type": "wikidata",
-                "desc": "Structured movie data from Wikidata",
-                "license": "CC0",
-                "count": "1M+ entries"
-            },
-            {
-                "name": "Open Movie Database",
-                "icon": "🎦",
-                "url": "https://archive.org/details/open_source_movies",
-                "search_url": "https://archive.org/search?query={query}+collection%3Aopen_source_movies",
-                "api_url": "https://archive.org/advancedsearch.php?q={query}+collection:open_source_movies&output=json&rows={limit}&page={page}",
-                "api_type": "archive_org",
-                "desc": "Community contributed open source films",
-                "license": "Various CC",
-                "count": "50K+ videos"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 📹 VIDEOS
-    # ──────────────────────────────────────────────────────
-    "videos": {
-        "icon": "📹",
-        "title": "𝗩𝗶𝗱𝗲𝗼𝘀",
-        "desc": "Free stock videos, clips, footage from open databases",
-        "sources": [
-            {
-                "name": "Pexels Videos",
-                "icon": "🎬",
-                "url": "https://www.pexels.com/videos/",
-                "search_url": "https://www.pexels.com/search/videos/{query}/",
-                "api_url": "https://api.pexels.com/videos/search?query={query}&per_page={limit}&page={page}",
-                "api_type": "pexels_video",
-                "desc": "Free HD/4K stock video clips",
-                "license": "Pexels License (Free)",
-                "count": "50K+ videos"
-            },
-            {
-                "name": "Pixabay Videos",
-                "icon": "📽️",
-                "url": "https://pixabay.com/videos/",
-                "search_url": "https://pixabay.com/videos/search/{query}/",
-                "api_url": "https://pixabay.com/api/videos/?key={api_key}&q={query}&per_page={limit}&page={page}",
-                "api_type": "pixabay_video",
-                "desc": "Free stock videos, motion graphics",
-                "license": "Pixabay License (Free)",
-                "count": "100K+ videos"
-            },
-            {
-                "name": "Archive.org Community Video",
-                "icon": "🏛️",
-                "url": "https://archive.org/details/opensource_movies",
-                "search_url": "https://archive.org/search?query={query}+mediatype%3Amovies+collection%3Aopensource_movies",
-                "api_url": "https://archive.org/advancedsearch.php?q={query}+collection:opensource_movies&output=json&rows={limit}&page={page}",
-                "api_type": "archive_org",
-                "desc": "Community uploaded free videos",
-                "license": "Various",
-                "count": "500K+ videos"
-            },
-            {
-                "name": "Coverr",
-                "icon": "🎞️",
-                "url": "https://coverr.co",
-                "search_url": "https://coverr.co/s?q={query}",
-                "api_type": "web_only",
-                "desc": "Beautiful free stock video footage",
-                "license": "Free (Coverr License)",
-                "count": "5K+ videos"
-            },
-            {
-                "name": "Videvo",
-                "icon": "🎥",
-                "url": "https://www.videvo.net",
-                "search_url": "https://www.videvo.net/search/{query}/",
-                "api_type": "web_only",
-                "desc": "Free stock footage & motion graphics",
-                "license": "Various (CC/Free)",
-                "count": "20K+ clips"
-            },
-            {
-                "name": "Pond5 Public Domain",
-                "icon": "🌊",
-                "url": "https://www.pond5.com/free",
-                "search_url": "https://www.pond5.com/free?kw={query}",
-                "api_type": "web_only",
-                "desc": "Historic & public domain videos",
-                "license": "Public Domain",
-                "count": "80K+ clips"
-            },
-            {
-                "name": "Mixkit",
-                "icon": "🎭",
-                "url": "https://mixkit.co/free-stock-video/",
-                "search_url": "https://mixkit.co/free-stock-video/{query}/",
-                "api_type": "web_only",
-                "desc": "High quality free stock videos",
-                "license": "Mixkit License (Free)",
-                "count": "10K+ videos"
-            },
-            {
-                "name": "NASA Video Gallery",
-                "icon": "🚀",
-                "url": "https://images.nasa.gov",
-                "search_url": "https://images.nasa.gov/#/search-results?q={query}&media=video",
-                "api_url": "https://images-api.nasa.gov/search?q={query}&media_type=video&page={page}",
-                "api_type": "nasa",
-                "desc": "Space videos, launches, ISS footage",
-                "license": "Public Domain (NASA)",
-                "count": "50K+ videos"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🖼️ IMAGES
-    # ──────────────────────────────────────────────────────
-    "images": {
-        "icon": "🖼️",
-        "title": "𝗜𝗺𝗮𝗴𝗲𝘀",
-        "desc": "Free images, photos, graphics from open databases",
-        "sources": [
-            {
-                "name": "Unsplash",
-                "icon": "📸",
-                "url": "https://unsplash.com",
-                "search_url": "https://unsplash.com/s/photos/{query}",
-                "api_url": "https://api.unsplash.com/search/photos?query={query}&per_page={limit}&page={page}",
-                "api_type": "unsplash",
-                "desc": "High-quality free photos",
-                "license": "Unsplash License",
-                "count": "5M+ photos"
-            },
-            {
-                "name": "Pexels Photos",
-                "icon": "🖼️",
-                "url": "https://www.pexels.com",
-                "search_url": "https://www.pexels.com/search/{query}/",
-                "api_url": "https://api.pexels.com/v1/search?query={query}&per_page={limit}&page={page}",
-                "api_type": "pexels_photo",
-                "desc": "Free stock photos",
-                "license": "Pexels License",
-                "count": "3M+ photos"
-            },
-            {
-                "name": "Pixabay Images",
-                "icon": "🎨",
-                "url": "https://pixabay.com",
-                "search_url": "https://pixabay.com/images/search/{query}/",
-                "api_url": "https://pixabay.com/api/?key={api_key}&q={query}&per_page={limit}&page={page}",
-                "api_type": "pixabay_image",
-                "desc": "Free images, vectors, illustrations",
-                "license": "Pixabay License",
-                "count": "4M+ images"
-            },
-            {
-                "name": "Openverse",
-                "icon": "🌐",
-                "url": "https://openverse.org",
-                "search_url": "https://openverse.org/search/image?q={query}",
-                "api_url": "https://api.openverse.org/v1/images/?q={query}&page={page}&page_size={limit}",
-                "api_type": "openverse",
-                "desc": "800M+ CC-licensed images search engine",
-                "license": "Various CC",
-                "count": "800M+ images"
-            },
-            {
-                "name": "Wikimedia Commons",
-                "icon": "🏛️",
-                "url": "https://commons.wikimedia.org",
-                "search_url": "https://commons.wikimedia.org/w/index.php?search={query}&title=Special:MediaSearch&type=image",
-                "api_url": "https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch={query}+filetype:image&srnamespace=6&format=json&srlimit={limit}",
-                "api_type": "wikimedia",
-                "desc": "Free media repository by Wikipedia",
-                "license": "CC / Public Domain",
-                "count": "100M+ files"
-            },
-            {
-                "name": "StockSnap (CC0)",
-                "icon": "📷",
-                "url": "https://stocksnap.io",
-                "search_url": "https://stocksnap.io/search/{query}",
-                "api_type": "web_only",
-                "desc": "CC0 public domain photos",
-                "license": "CC0",
-                "count": "50K+ photos"
-            },
-            {
-                "name": "Public Domain Pictures",
-                "icon": "🏞️",
-                "url": "https://www.publicdomainpictures.net",
-                "search_url": "https://www.publicdomainpictures.net/en/search.php?q={query}",
-                "api_type": "web_only",
-                "desc": "Public domain stock photos",
-                "license": "Public Domain",
-                "count": "200K+ images"
-            },
-            {
-                "name": "NASA Images",
-                "icon": "🚀",
-                "url": "https://images.nasa.gov",
-                "search_url": "https://images.nasa.gov/#/search-results?q={query}&media=image",
-                "api_url": "https://images-api.nasa.gov/search?q={query}&media_type=image&page={page}",
-                "api_type": "nasa",
-                "desc": "Space, astronomy, NASA photos",
-                "license": "Public Domain (NASA)",
-                "count": "200K+ images"
-            },
-            {
-                "name": "Library of Congress",
-                "icon": "📚",
-                "url": "https://www.loc.gov/pictures/",
-                "search_url": "https://www.loc.gov/pictures/search/?q={query}",
-                "api_url": "https://www.loc.gov/search/?q={query}&fa=online-format:image&fo=json&sp={page}&c={limit}",
-                "api_type": "loc",
-                "desc": "Historic photos & prints",
-                "license": "Public Domain",
-                "count": "1M+ images"
-            },
-            {
-                "name": "Smithsonian Open Access",
-                "icon": "🏛️",
-                "url": "https://www.si.edu/openaccess",
-                "search_url": "https://www.si.edu/search/images?edan_q={query}",
-                "api_url": "https://api.si.edu/openaccess/api/v1.0/search?q={query}&rows={limit}&start={offset}&api_key=DEMO_KEY",
-                "api_type": "smithsonian",
-                "desc": "Smithsonian museum collections",
-                "license": "CC0",
-                "count": "4.5M+ images"
-            },
-            {
-                "name": "Metropolitan Museum of Art",
-                "icon": "🖼️",
-                "url": "https://www.metmuseum.org/art/collection",
-                "search_url": "https://www.metmuseum.org/art/collection/search?q={query}",
-                "api_url": "https://collectionapi.metmuseum.org/public/collection/v1/search?q={query}&hasImages=true",
-                "api_type": "met",
-                "desc": "Art masterpieces collection",
-                "license": "CC0 / Public Domain",
-                "count": "500K+ artworks"
-            },
-            {
-                "name": "Rijksmuseum",
-                "icon": "🎨",
-                "url": "https://www.rijksmuseum.nl/en/rijksstudio",
-                "search_url": "https://www.rijksmuseum.nl/en/search?q={query}",
-                "api_url": "https://www.rijksmuseum.nl/api/en/collection?q={query}&key=demo&format=json&ps={limit}&p={page}",
-                "api_type": "rijks",
-                "desc": "Dutch Masters art collection",
-                "license": "CC0 / Public Domain",
-                "count": "700K+ artworks"
-            },
-            {
-                "name": "National Gallery of Art",
-                "icon": "🖌️",
-                "url": "https://www.nga.gov/artworks/free-images-and-open-access.html",
-                "search_url": "https://www.nga.gov/collection-search-result.html?artobj_imagesonly=Images_online&keyword={query}",
-                "api_type": "web_only",
-                "desc": "60K+ fine art images",
-                "license": "CC0",
-                "count": "60K+ artworks"
-            },
-            {
-                "name": "Google Open Images",
-                "icon": "🔍",
-                "url": "https://storage.googleapis.com/openimages/web/index.html",
-                "search_url": "https://storage.googleapis.com/openimages/web/visualizer/index.html?type=detection&set=train&c={query}",
-                "api_type": "web_only",
-                "desc": "9M+ labeled images dataset",
-                "license": "CC BY 4.0",
-                "count": "9M+ images"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🌄 WALLPAPERS
-    # ──────────────────────────────────────────────────────
-    "wallpapers": {
-        "icon": "🌄",
-        "title": "𝗪𝗮𝗹𝗹𝗽𝗮𝗽𝗲𝗿𝘀",
-        "desc": "Free HD/4K wallpapers from open databases",
-        "sources": [
-            {
-                "name": "Unsplash Wallpapers",
-                "icon": "📱",
-                "url": "https://unsplash.com/wallpapers",
-                "search_url": "https://unsplash.com/s/photos/{query}-wallpaper",
-                "api_type": "web_only",
-                "desc": "Premium quality wallpapers",
-                "license": "Unsplash License",
-                "count": "500K+ wallpapers"
-            },
-            {
-                "name": "Pexels Wallpapers",
-                "icon": "🖥️",
-                "url": "https://www.pexels.com/search/wallpaper/",
-                "search_url": "https://www.pexels.com/search/{query}%20wallpaper/",
-                "api_type": "web_only",
-                "desc": "Free desktop & phone wallpapers",
-                "license": "Pexels License",
-                "count": "200K+ wallpapers"
-            },
-            {
-                "name": "Wallhaven",
-                "icon": "🎭",
-                "url": "https://wallhaven.cc",
-                "search_url": "https://wallhaven.cc/search?q={query}",
-                "api_url": "https://wallhaven.cc/api/v1/search?q={query}&page={page}",
-                "api_type": "wallhaven",
-                "desc": "Largest wallpaper community",
-                "license": "Various",
-                "count": "1M+ wallpapers"
-            },
-            {
-                "name": "Simple Desktops",
-                "icon": "💻",
-                "url": "https://simpledesktops.com",
-                "search_url": "https://simpledesktops.com/browse/?q={query}",
-                "api_type": "web_only",
-                "desc": "Minimal, clean desktop wallpapers",
-                "license": "Free",
-                "count": "1K+ wallpapers"
-            },
-            {
-                "name": "Pixabay Wallpapers",
-                "icon": "🌅",
-                "url": "https://pixabay.com/images/search/wallpaper/",
-                "search_url": "https://pixabay.com/images/search/{query}+wallpaper/",
-                "api_type": "web_only",
-                "desc": "Free wallpaper images",
-                "license": "Pixabay License",
-                "count": "100K+ wallpapers"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🌸 ANIME
-    # ──────────────────────────────────────────────────────
-    "anime": {
-        "icon": "🌸",
-        "title": "𝗔𝗻𝗶𝗺𝗲",
-        "desc": "Anime databases, info, images",
-        "sources": [
-            {
-                "name": "MyAnimeList (Jikan API)",
-                "icon": "📋",
-                "url": "https://myanimelist.net",
-                "search_url": "https://myanimelist.net/search/all?q={query}",
-                "api_url": "https://api.jikan.moe/v4/anime?q={query}&limit={limit}&page={page}",
-                "api_type": "jikan",
-                "desc": "World's largest anime database",
-                "license": "Open API",
-                "count": "60K+ anime"
-            },
-            {
-                "name": "AniList",
-                "icon": "📊",
-                "url": "https://anilist.co",
-                "search_url": "https://anilist.co/search/anime?search={query}",
-                "api_url": "https://graphql.anilist.co",
-                "api_type": "anilist",
-                "desc": "Modern anime & manga tracking",
-                "license": "Open API",
-                "count": "50K+ anime"
-            },
-            {
-                "name": "Kitsu",
-                "icon": "🦊",
-                "url": "https://kitsu.io",
-                "search_url": "https://kitsu.io/anime?text={query}",
-                "api_url": "https://kitsu.io/api/edge/anime?filter[text]={query}&page[limit]={limit}&page[offset]={offset}",
-                "api_type": "kitsu",
-                "desc": "Anime & manga discovery platform",
-                "license": "Open API",
-                "count": "45K+ anime"
-            },
-            {
-                "name": "AniDB",
-                "icon": "🗃️",
-                "url": "https://anidb.net",
-                "search_url": "https://anidb.net/anime/?adb.search={query}&do.search=1",
-                "api_type": "web_only",
-                "desc": "Detailed anime database",
-                "license": "Open",
-                "count": "15K+ anime"
-            },
-            {
-                "name": "Anime-Planet",
-                "icon": "🌍",
-                "url": "https://www.anime-planet.com",
-                "search_url": "https://www.anime-planet.com/anime/all?name={query}",
-                "api_type": "web_only",
-                "desc": "Anime recommendations & info",
-                "license": "Open",
-                "count": "50K+ anime"
-            },
-            {
-                "name": "Waifu.pics (Anime Images)",
-                "icon": "🎌",
-                "url": "https://waifu.pics",
-                "api_url": "https://api.waifu.pics/sfw/{query}",
-                "api_type": "waifu",
-                "desc": "Anime images API (SFW)",
-                "license": "Open API",
-                "count": "100K+ images"
-            },
-            {
-                "name": "Nekos.life (Anime API)",
-                "icon": "🐱",
-                "url": "https://nekos.life",
-                "api_url": "https://nekos.life/api/v2/img/{query}",
-                "api_type": "nekos",
-                "desc": "Anime images & fun API",
-                "license": "Open API",
-                "count": "50K+ images"
-            },
-            {
-                "name": "Trace.moe (Anime Scene Search)",
-                "icon": "🔍",
-                "url": "https://trace.moe",
-                "search_url": "https://trace.moe/?url={query}",
-                "api_type": "web_only",
-                "desc": "Search anime by screenshot",
-                "license": "Open API",
-                "count": "60K+ anime indexed"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🎵 MUSIC & AUDIO
-    # ──────────────────────────────────────────────────────
-    "music": {
-        "icon": "🎵",
-        "title": "𝗠𝘂𝘀𝗶𝗰 & 𝗔𝘂𝗱𝗶𝗼",
-        "desc": "Free music, sound effects, audio databases",
-        "sources": [
-            {
-                "name": "Free Music Archive",
-                "icon": "🎶",
-                "url": "https://freemusicarchive.org",
-                "search_url": "https://freemusicarchive.org/search?quicksearch={query}",
-                "api_type": "web_only",
-                "desc": "Free CC-licensed music",
-                "license": "Various CC",
-                "count": "200K+ tracks"
-            },
-            {
-                "name": "Jamendo Music",
-                "icon": "🎸",
-                "url": "https://www.jamendo.com",
-                "search_url": "https://www.jamendo.com/search?qs=fq={query}",
-                "api_url": "https://api.jamendo.com/v3.0/tracks/?client_id=demo&search={query}&limit={limit}&offset={offset}",
-                "api_type": "jamendo",
-                "desc": "Free music for creators",
-                "license": "CC / Free",
-                "count": "700K+ tracks"
-            },
-            {
-                "name": "Archive.org Audio",
-                "icon": "🏛️",
-                "url": "https://archive.org/details/audio",
-                "search_url": "https://archive.org/search?query={query}&and[]=mediatype%3A%22audio%22",
-                "api_url": "https://archive.org/advancedsearch.php?q={query}+mediatype:audio&output=json&rows={limit}&page={page}",
-                "api_type": "archive_org",
-                "desc": "Free audio archive",
-                "license": "Various",
-                "count": "5M+ audio items"
-            },
-            {
-                "name": "Freesound",
-                "icon": "🔊",
-                "url": "https://freesound.org",
-                "search_url": "https://freesound.org/search/?q={query}",
-                "api_type": "web_only",
-                "desc": "Sound effects & ambient sounds",
-                "license": "CC",
-                "count": "600K+ sounds"
-            },
-            {
-                "name": "ccMixter",
-                "icon": "🎛️",
-                "url": "https://ccmixter.org",
-                "search_url": "https://ccmixter.org/search?search_text={query}",
-                "api_type": "web_only",
-                "desc": "Community remix music",
-                "license": "CC",
-                "count": "50K+ tracks"
-            },
-            {
-                "name": "Musopen",
-                "icon": "🎻",
-                "url": "https://musopen.org",
-                "search_url": "https://musopen.org/search/?q={query}",
-                "api_type": "web_only",
-                "desc": "Free classical music recordings",
-                "license": "Public Domain / CC",
-                "count": "10K+ recordings"
-            },
-            {
-                "name": "MusicBrainz",
-                "icon": "📀",
-                "url": "https://musicbrainz.org",
-                "search_url": "https://musicbrainz.org/search?query={query}&type=recording",
-                "api_url": "https://musicbrainz.org/ws/2/recording/?query={query}&fmt=json&limit={limit}&offset={offset}",
-                "api_type": "musicbrainz",
-                "desc": "Open music encyclopedia",
-                "license": "CC0 / CC BY-NC-SA",
-                "count": "30M+ recordings"
-            },
-            {
-                "name": "BBC Sound Effects",
-                "icon": "📻",
-                "url": "https://sound-effects.bbcrewind.co.uk",
-                "search_url": "https://sound-effects.bbcrewind.co.uk/search?q={query}",
-                "api_type": "web_only",
-                "desc": "BBC's sound effects library",
-                "license": "Personal/Educational use",
-                "count": "33K+ sounds"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 📚 BOOKS & DOCUMENTS
-    # ──────────────────────────────────────────────────────
-    "books": {
-        "icon": "📚",
-        "title": "𝗕𝗼𝗼𝗸𝘀 & 𝗗𝗼𝗰𝘂𝗺𝗲𝗻𝘁𝘀",
-        "desc": "Free ebooks, textbooks, documents, papers",
-        "sources": [
-            {
-                "name": "Project Gutenberg",
-                "icon": "📖",
-                "url": "https://www.gutenberg.org",
-                "search_url": "https://www.gutenberg.org/ebooks/search/?query={query}",
-                "api_url": "https://gutendex.com/books/?search={query}&page={page}",
-                "api_type": "gutenberg",
-                "desc": "70K+ free classic ebooks",
-                "license": "Public Domain",
-                "count": "70K+ books"
-            },
-            {
-                "name": "Open Library",
-                "icon": "🏛️",
-                "url": "https://openlibrary.org",
-                "search_url": "https://openlibrary.org/search?q={query}",
-                "api_url": "https://openlibrary.org/search.json?q={query}&limit={limit}&page={page}",
-                "api_type": "openlibrary",
-                "desc": "Open catalog of every book",
-                "license": "Open",
-                "count": "20M+ books"
-            },
-            {
-                "name": "Archive.org Texts",
-                "icon": "📜",
-                "url": "https://archive.org/details/texts",
-                "search_url": "https://archive.org/search?query={query}&and[]=mediatype%3A%22texts%22",
-                "api_url": "https://archive.org/advancedsearch.php?q={query}+mediatype:texts&output=json&rows={limit}&page={page}",
-                "api_type": "archive_org",
-                "desc": "Millions of free texts & books",
-                "license": "Various",
-                "count": "30M+ texts"
-            },
-            {
-                "name": "Google Books (Preview)",
-                "icon": "📗",
-                "url": "https://books.google.com",
-                "search_url": "https://www.google.com/search?tbm=bks&q={query}",
-                "api_url": "https://www.googleapis.com/books/v1/volumes?q={query}&maxResults={limit}&startIndex={offset}",
-                "api_type": "google_books",
-                "desc": "Book previews & info",
-                "license": "Various",
-                "count": "40M+ books indexed"
-            },
-            {
-                "name": "Standard Ebooks",
-                "icon": "📕",
-                "url": "https://standardebooks.org",
-                "search_url": "https://standardebooks.org/ebooks?query={query}",
-                "api_type": "web_only",
-                "desc": "Beautifully formatted free ebooks",
-                "license": "Public Domain",
-                "count": "800+ books"
-            },
-            {
-                "name": "arXiv (Research Papers)",
-                "icon": "📄",
-                "url": "https://arxiv.org",
-                "search_url": "https://arxiv.org/search/?query={query}&searchtype=all",
-                "api_url": "http://export.arxiv.org/api/query?search_query=all:{query}&start={offset}&max_results={limit}",
-                "api_type": "arxiv",
-                "desc": "Open access research papers",
-                "license": "Open Access",
-                "count": "2M+ papers"
-            },
-            {
-                "name": "CORE (Research Papers)",
-                "icon": "🔬",
-                "url": "https://core.ac.uk",
-                "search_url": "https://core.ac.uk/search?q={query}",
-                "api_type": "web_only",
-                "desc": "Aggregator of open access papers",
-                "license": "Open Access",
-                "count": "300M+ papers"
-            },
-            {
-                "name": "Semantic Scholar",
-                "icon": "🧠",
-                "url": "https://www.semanticscholar.org",
-                "search_url": "https://www.semanticscholar.org/search?q={query}",
-                "api_url": "https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit={limit}&offset={offset}",
-                "api_type": "semantic_scholar",
-                "desc": "AI-powered research paper search",
-                "license": "Open API",
-                "count": "200M+ papers"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🎮 GAMES & GAME ASSETS
-    # ──────────────────────────────────────────────────────
-    "games": {
-        "icon": "🎮",
-        "title": "𝗚𝗮𝗺𝗲𝘀 & 𝗔𝘀𝘀𝗲𝘁𝘀",
-        "desc": "Free games, game assets, sprites, 3D models",
-        "sources": [
-            {
-                "name": "itch.io (Free Games)",
-                "icon": "🕹️",
-                "url": "https://itch.io/games/free",
-                "search_url": "https://itch.io/search?q={query}&type=games&price=free",
-                "api_type": "web_only",
-                "desc": "Indie games, many free",
-                "license": "Various",
-                "count": "500K+ games"
-            },
-            {
-                "name": "OpenGameArt",
-                "icon": "🎨",
-                "url": "https://opengameart.org",
-                "search_url": "https://opengameart.org/art-search-advanced?keys={query}",
-                "api_type": "web_only",
-                "desc": "Free game art, sprites, textures",
-                "license": "CC / GPL / Public Domain",
-                "count": "80K+ assets"
-            },
-            {
-                "name": "Kenney Assets",
-                "icon": "🧩",
-                "url": "https://kenney.nl/assets",
-                "search_url": "https://kenney.nl/assets?q={query}",
-                "api_type": "web_only",
-                "desc": "Public domain game assets",
-                "license": "CC0",
-                "count": "40K+ assets"
-            },
-            {
-                "name": "RAWG Game Database",
-                "icon": "📊",
-                "url": "https://rawg.io",
-                "search_url": "https://rawg.io/search?query={query}",
-                "api_url": "https://api.rawg.io/api/games?search={query}&key=demo&page={page}&page_size={limit}",
-                "api_type": "rawg",
-                "desc": "Video game database & discovery",
-                "license": "Open API",
-                "count": "800K+ games"
-            },
-            {
-                "name": "IGDB (Internet Game DB)",
-                "icon": "🎯",
-                "url": "https://www.igdb.com",
-                "search_url": "https://www.igdb.com/search?utf8=✓&q={query}",
-                "api_type": "web_only",
-                "desc": "Comprehensive game information",
-                "license": "Open",
-                "count": "300K+ games"
-            },
-            {
-                "name": "Free3D Models",
-                "icon": "🧊",
-                "url": "https://free3d.com",
-                "search_url": "https://free3d.com/3d-models/{query}",
-                "api_type": "web_only",
-                "desc": "Free 3D models for games",
-                "license": "Various Free",
-                "count": "100K+ models"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 💻 CODE & SOFTWARE
-    # ──────────────────────────────────────────────────────
-    "code": {
-        "icon": "💻",
-        "title": "𝗖𝗼𝗱𝗲 & 𝗦𝗼𝗳𝘁𝘄𝗮𝗿𝗲",
-        "desc": "Open source code, repos, software",
-        "sources": [
-            {
-                "name": "GitHub",
-                "icon": "🐙",
-                "url": "https://github.com",
-                "search_url": "https://github.com/search?q={query}&type=repositories",
-                "api_url": "https://api.github.com/search/repositories?q={query}&per_page={limit}&page={page}",
-                "api_type": "github",
-                "desc": "World's largest code repository",
-                "license": "Various Open Source",
-                "count": "300M+ repos"
-            },
-            {
-                "name": "GitLab",
-                "icon": "🦊",
-                "url": "https://gitlab.com",
-                "search_url": "https://gitlab.com/search?search={query}",
-                "api_url": "https://gitlab.com/api/v4/projects?search={query}&per_page={limit}&page={page}",
-                "api_type": "gitlab",
-                "desc": "Open source DevOps platform",
-                "license": "Various",
-                "count": "30M+ repos"
-            },
-            {
-                "name": "SourceForge",
-                "icon": "📦",
-                "url": "https://sourceforge.net",
-                "search_url": "https://sourceforge.net/directory/?q={query}",
-                "api_type": "web_only",
-                "desc": "Classic open source software hosting",
-                "license": "Various Open Source",
-                "count": "500K+ projects"
-            },
-            {
-                "name": "Archive.org Software",
-                "icon": "🏛️",
-                "url": "https://archive.org/details/software",
-                "search_url": "https://archive.org/search?query={query}&and[]=mediatype%3A%22software%22",
-                "api_url": "https://archive.org/advancedsearch.php?q={query}+mediatype:software&output=json&rows={limit}&page={page}",
-                "api_type": "archive_org",
-                "desc": "Historical & free software archive",
-                "license": "Various",
-                "count": "500K+ items"
-            },
-            {
-                "name": "F-Droid (Android FOSS)",
-                "icon": "🤖",
-                "url": "https://f-droid.org",
-                "search_url": "https://search.f-droid.org/?q={query}",
-                "api_type": "web_only",
-                "desc": "Free & open source Android apps",
-                "license": "Various FOSS",
-                "count": "5K+ apps"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🤖 AI & DATASETS
-    # ──────────────────────────────────────────────────────
-    "datasets": {
-        "icon": "🤖",
-        "title": "𝗔𝗜 & 𝗗𝗮𝘁𝗮𝘀𝗲𝘁𝘀",
-        "desc": "Open datasets for ML, AI, research",
-        "sources": [
-            {
-                "name": "Hugging Face Datasets",
-                "icon": "🤗",
-                "url": "https://huggingface.co/datasets",
-                "search_url": "https://huggingface.co/datasets?search={query}",
-                "api_url": "https://huggingface.co/api/datasets?search={query}&limit={limit}",
-                "api_type": "huggingface",
-                "desc": "ML datasets hub",
-                "license": "Various",
-                "count": "100K+ datasets"
-            },
-            {
-                "name": "Kaggle Datasets",
-                "icon": "📊",
-                "url": "https://www.kaggle.com/datasets",
-                "search_url": "https://www.kaggle.com/datasets?search={query}",
-                "api_type": "web_only",
-                "desc": "Data science competition datasets",
-                "license": "Various",
-                "count": "200K+ datasets"
-            },
-            {
-                "name": "Papers With Code",
-                "icon": "📝",
-                "url": "https://paperswithcode.com",
-                "search_url": "https://paperswithcode.com/search?q={query}",
-                "api_type": "web_only",
-                "desc": "ML papers with code & datasets",
-                "license": "Open",
-                "count": "100K+ papers"
-            },
-            {
-                "name": "Google Dataset Search",
-                "icon": "🔍",
-                "url": "https://datasetsearch.research.google.com",
-                "search_url": "https://datasetsearch.research.google.com/search?query={query}",
-                "api_type": "web_only",
-                "desc": "Google's dataset search engine",
-                "license": "Various",
-                "count": "25M+ datasets"
-            },
-            {
-                "name": "UCI ML Repository",
-                "icon": "📈",
-                "url": "https://archive.ics.uci.edu",
-                "search_url": "https://archive.ics.uci.edu/datasets?search={query}",
-                "api_type": "web_only",
-                "desc": "Classic ML benchmark datasets",
-                "license": "CC BY 4.0",
-                "count": "600+ datasets"
-            },
-            {
-                "name": "Data.gov (US)",
-                "icon": "🇺🇸",
-                "url": "https://data.gov",
-                "search_url": "https://catalog.data.gov/dataset?q={query}",
-                "api_type": "web_only",
-                "desc": "US Government open data",
-                "license": "Public Domain",
-                "count": "300K+ datasets"
-            },
-            {
-                "name": "AWS Open Data",
-                "icon": "☁️",
-                "url": "https://registry.opendata.aws",
-                "search_url": "https://registry.opendata.aws/?search=keywords:{query}",
-                "api_type": "web_only",
-                "desc": "Open data on AWS",
-                "license": "Various Open",
-                "count": "400+ datasets"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🧊 3D MODELS & DESIGN
-    # ──────────────────────────────────────────────────────
-    "three_d": {
-        "icon": "🧊",
-        "title": "𝟯𝗗 𝗠𝗼𝗱𝗲𝗹𝘀 & 𝗗𝗲𝘀𝗶𝗴𝗻",
-        "desc": "Free 3D models, CAD files, design resources",
-        "sources": [
-            {
-                "name": "Sketchfab (Free)",
-                "icon": "🎭",
-                "url": "https://sketchfab.com/search?features=downloadable&q=&sort_by=-likeCount&type=models",
-                "search_url": "https://sketchfab.com/search?features=downloadable&q={query}&sort_by=-likeCount&type=models",
-                "api_type": "web_only",
-                "desc": "Free downloadable 3D models",
-                "license": "CC / Free",
-                "count": "500K+ models"
-            },
-            {
-                "name": "Thingiverse",
-                "icon": "🖨️",
-                "url": "https://www.thingiverse.com",
-                "search_url": "https://www.thingiverse.com/search?q={query}&type=things",
-                "api_type": "web_only",
-                "desc": "3D printable models",
-                "license": "Various CC",
-                "count": "2M+ models"
-            },
-            {
-                "name": "Smithsonian 3D",
-                "icon": "🏛️",
-                "url": "https://3d.si.edu",
-                "search_url": "https://3d.si.edu/search/type:3d_package?edan_q={query}",
-                "api_type": "web_only",
-                "desc": "Smithsonian 3D-scanned artifacts",
-                "license": "CC0",
-                "count": "1K+ 3D scans"
-            },
-            {
-                "name": "Poly Haven",
-                "icon": "🌄",
-                "url": "https://polyhaven.com",
-                "search_url": "https://polyhaven.com/models?s={query}",
-                "api_type": "web_only",
-                "desc": "Free HDRIs, textures, 3D models",
-                "license": "CC0",
-                "count": "2K+ assets"
-            },
-            {
-                "name": "TurboSquid (Free)",
-                "icon": "🐙",
-                "url": "https://www.turbosquid.com/Search/3D-Models/free",
-                "search_url": "https://www.turbosquid.com/Search/3D-Models/free/{query}",
-                "api_type": "web_only",
-                "desc": "Free 3D models collection",
-                "license": "Various",
-                "count": "100K+ free models"
-            },
-            {
-                "name": "NASA 3D Resources",
-                "icon": "🚀",
-                "url": "https://nasa3d.arc.nasa.gov",
-                "search_url": "https://nasa3d.arc.nasa.gov/search/query/{query}",
-                "api_type": "web_only",
-                "desc": "NASA spacecraft & planet 3D models",
-                "license": "Public Domain",
-                "count": "500+ models"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🗺️ MAPS & GEO DATA
-    # ──────────────────────────────────────────────────────
-    "maps": {
-        "icon": "🗺️",
-        "title": "𝗠𝗮𝗽𝘀 & 𝗚𝗲𝗼 𝗗𝗮𝘁𝗮",
-        "desc": "Free maps, geographic data, satellite imagery",
-        "sources": [
-            {
-                "name": "OpenStreetMap",
-                "icon": "🗺️",
-                "url": "https://www.openstreetmap.org",
-                "search_url": "https://www.openstreetmap.org/search?query={query}",
-                "api_type": "web_only",
-                "desc": "Free, editable world map",
-                "license": "ODbL",
-                "count": "Entire world mapped"
-            },
-            {
-                "name": "NASA Earthdata",
-                "icon": "🌍",
-                "url": "https://earthdata.nasa.gov",
-                "search_url": "https://search.earthdata.nasa.gov/search?q={query}",
-                "api_type": "web_only",
-                "desc": "Earth science satellite data",
-                "license": "Public Domain",
-                "count": "50PB+ data"
-            },
-            {
-                "name": "Natural Earth",
-                "icon": "🌐",
-                "url": "https://www.naturalearthdata.com",
-                "search_url": "https://www.naturalearthdata.com/downloads/",
-                "api_type": "web_only",
-                "desc": "Free vector & raster map data",
-                "license": "Public Domain",
-                "count": "Global datasets"
-            },
-            {
-                "name": "Mapillary (Street Images)",
-                "icon": "📸",
-                "url": "https://www.mapillary.com",
-                "search_url": "https://www.mapillary.com/app/?lat=0&lng=0&z=2&focus=map",
-                "api_type": "web_only",
-                "desc": "Crowd-sourced street-level photos",
-                "license": "CC BY-SA",
-                "count": "2B+ images"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🔬 SCIENCE & EDUCATION
-    # ──────────────────────────────────────────────────────
-    "science": {
-        "icon": "🔬",
-        "title": "𝗦𝗰𝗶𝗲𝗻𝗰𝗲 & 𝗘𝗱𝘂𝗰𝗮𝘁𝗶𝗼𝗻",
-        "desc": "Scientific data, educational resources",
-        "sources": [
-            {
-                "name": "Wikipedia",
-                "icon": "📖",
-                "url": "https://en.wikipedia.org",
-                "search_url": "https://en.wikipedia.org/w/index.php?search={query}",
-                "api_url": "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={query}&format=json&srlimit={limit}",
-                "api_type": "wikipedia",
-                "desc": "Free encyclopedia",
-                "license": "CC BY-SA",
-                "count": "60M+ articles"
-            },
-            {
-                "name": "PubMed (Medical Papers)",
-                "icon": "🏥",
-                "url": "https://pubmed.ncbi.nlm.nih.gov",
-                "search_url": "https://pubmed.ncbi.nlm.nih.gov/?term={query}",
-                "api_type": "web_only",
-                "desc": "Biomedical research papers",
-                "license": "Open Access",
-                "count": "36M+ papers"
-            },
-            {
-                "name": "Khan Academy",
-                "icon": "🎓",
-                "url": "https://www.khanacademy.org",
-                "search_url": "https://www.khanacademy.org/search?page_search_query={query}",
-                "api_type": "web_only",
-                "desc": "Free educational content",
-                "license": "CC BY-NC-SA",
-                "count": "10K+ lessons"
-            },
-            {
-                "name": "MIT OpenCourseWare",
-                "icon": "🏛️",
-                "url": "https://ocw.mit.edu",
-                "search_url": "https://ocw.mit.edu/search/?q={query}",
-                "api_type": "web_only",
-                "desc": "Free MIT course materials",
-                "license": "CC BY-NC-SA",
-                "count": "2500+ courses"
-            },
-            {
-                "name": "Wolfram Alpha",
-                "icon": "🧮",
-                "url": "https://www.wolframalpha.com",
-                "search_url": "https://www.wolframalpha.com/input?i={query}",
-                "api_type": "web_only",
-                "desc": "Computational knowledge engine",
-                "license": "Various",
-                "count": "Trillions of data"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 📰 NEWS & MEDIA
-    # ──────────────────────────────────────────────────────
-    "news": {
-        "icon": "📰",
-        "title": "𝗡𝗲𝘄𝘀 & 𝗠𝗲𝗱𝗶𝗮",
-        "desc": "Open news archives & media databases",
-        "sources": [
-            {
-                "name": "Wayback Machine",
-                "icon": "⏰",
-                "url": "https://web.archive.org",
-                "search_url": "https://web.archive.org/web/*/{query}*",
-                "api_type": "web_only",
-                "desc": "Archived web pages & news",
-                "license": "Archive",
-                "count": "890B+ pages"
-            },
-            {
-                "name": "GDELT Project",
-                "icon": "🌍",
-                "url": "https://www.gdeltproject.org",
-                "search_url": "https://api.gdeltproject.org/api/v2/doc/doc?query={query}&mode=artlist&format=html",
-                "api_type": "web_only",
-                "desc": "Global news database",
-                "license": "Open",
-                "count": "Billions of events"
-            },
-            {
-                "name": "Common Crawl",
-                "icon": "🕸️",
-                "url": "https://commoncrawl.org",
-                "search_url": "https://index.commoncrawl.org/CC-MAIN-2024-10-index?url={query}&output=json",
-                "api_type": "web_only",
-                "desc": "Open web crawl data",
-                "license": "Open",
-                "count": "250B+ pages"
-            },
-        ]
-    },
-    
-    # ──────────────────────────────────────────────────────
-    # 🎭 ICONS, FONTS & DESIGN RESOURCES
-    # ──────────────────────────────────────────────────────
-    "design": {
-        "icon": "🎨",
-        "title": "𝗗𝗲𝘀𝗶𝗴𝗻 𝗥𝗲𝘀𝗼𝘂𝗿𝗰𝗲𝘀",
-        "desc": "Free icons, fonts, UI kits, design tools",
-        "sources": [
-            {
-                "name": "Google Fonts",
-                "icon": "🔤",
-                "url": "https://fonts.google.com",
-                "search_url": "https://fonts.google.com/?query={query}",
-                "api_type": "web_only",
-                "desc": "Free web fonts",
-                "license": "Open Font License",
-                "count": "1600+ fonts"
-            },
-            {
-                "name": "Font Awesome",
-                "icon": "⭐",
-                "url": "https://fontawesome.com/icons",
-                "search_url": "https://fontawesome.com/search?q={query}&o=r",
-                "api_type": "web_only",
-                "desc": "Popular icon library",
-                "license": "CC BY 4.0 / MIT",
-                "count": "2000+ free icons"
-            },
-            {
-                "name": "Heroicons",
-                "icon": "🦸",
-                "url": "https://heroicons.com",
-                "search_url": "https://heroicons.com/?search={query}",
-                "api_type": "web_only",
-                "desc": "Beautiful hand-crafted SVG icons",
-                "license": "MIT",
-                "count": "300+ icons"
-            },
-            {
-                "name": "Feather Icons",
-                "icon": "🪶",
-                "url": "https://feathericons.com",
-                "search_url": "https://feathericons.com/?query={query}",
-                "api_type": "web_only",
-                "desc": "Simple, beautiful open source icons",
-                "license": "MIT",
-                "count": "280+ icons"
-            },
-            {
-                "name": "SVG Repo",
-                "icon": "📐",
-                "url": "https://www.svgrepo.com",
-                "search_url": "https://www.svgrepo.com/vectors/{query}/",
-                "api_type": "web_only",
-                "desc": "Free SVG vectors & icons",
-                "license": "Various CC / MIT",
-                "count": "500K+ SVGs"
-            },
-            {
-                "name": "Figma Community",
-                "icon": "🎯",
-                "url": "https://www.figma.com/community",
-                "search_url": "https://www.figma.com/community/search?resource_type=mixed&sort_by=relevancy&query={query}",
-                "api_type": "web_only",
-                "desc": "Free design files, plugins, templates",
-                "license": "CC / Free",
-                "count": "100K+ resources"
-            },
-            {
-                "name": "Dribbble (Freebies)",
-                "icon": "🏀",
-                "url": "https://dribbble.com/tags/freebie",
-                "search_url": "https://dribbble.com/search/shots/popular/freebie?q={query}",
-                "api_type": "web_only",
-                "desc": "Free design resources from designers",
-                "license": "Various Free",
-                "count": "50K+ freebies"
-            },
-        ]
-    },
-}
-
-# ═══════════════════════════════════════════════════════════
-# 🔍 ADVANCED SEARCH ENGINE
-# ═══════════════════════════════════════════════════════════
-
-class MediaSearchEngine:
-    """Advanced search engine that queries multiple open databases"""
-    
     def __init__(self):
         self.session = None
-        self.cache = {}
-        self.search_history = {}
-    
+
     async def get_session(self):
         if self.session is None or self.session.closed:
-            timeout = aiohttp.ClientTimeout(total=15)
-            self.session = aiohttp.ClientSession(timeout=timeout)
+            timeout = aiohttp.ClientTimeout(total=30)
+            connector = aiohttp.TCPConnector(limit=10, force_close=True)
+            self.session = aiohttp.ClientSession(
+                timeout=timeout, connector=connector,
+                headers={"User-Agent": "MediaBot/2.0"}
+            )
         return self.session
-    
+
     async def close(self):
         if self.session and not self.session.closed:
             await self.session.close()
-    
-    async def search_archive_org(self, query, limit=10, page=1):
-        """Search Internet Archive"""
-        results = []
+
+    async def download_bytes(self, url, max_size=45*1024*1024):
+        """Download file as bytes (max 45MB for Telegram limit)"""
         try:
             session = await self.get_session()
-            url = f"https://archive.org/advancedsearch.php?q={quote_plus(query)}&output=json&rows={limit}&page={page}&fl[]=identifier,title,description,mediatype,downloads,date,creator"
             async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json(content_type=None)
-                    docs = data.get("response", {}).get("docs", [])
-                    for doc in docs:
-                        identifier = doc.get("identifier", "")
-                        results.append({
-                            "title": doc.get("title", "Unknown"),
-                            "desc": (doc.get("description", "") or "")[:200],
-                            "url": f"https://archive.org/details/{identifier}",
-                            "download": f"https://archive.org/download/{identifier}",
-                            "type": doc.get("mediatype", "unknown"),
-                            "date": doc.get("date", "N/A"),
-                            "creator": doc.get("creator", "Unknown"),
-                            "downloads": doc.get("downloads", 0),
-                            "source": "Internet Archive"
-                        })
+                if resp.status != 200:
+                    return None
+                content_length = resp.headers.get('Content-Length')
+                if content_length and int(content_length) > max_size:
+                    return None
+                data = await resp.read()
+                if len(data) > max_size:
+                    return None
+                return data
         except Exception as e:
-            logger.error(f"Archive.org search error: {e}")
-        return results
-    
-    async def search_openverse(self, query, limit=10, page=1):
-        """Search Openverse (800M+ CC images)"""
-        results = []
+            logger.error(f"Download error: {e}")
+            return None
+
+    async def send_photo_telegram(self, bot, chat_id, image_url, caption=""):
+        """Download image and send as Telegram photo"""
         try:
-            session = await self.get_session()
-            url = f"https://api.openverse.org/v1/images/?q={quote_plus(query)}&page={page}&page_size={limit}"
-            headers = {"User-Agent": "MediaBot/1.0"}
-            async with session.get(url, headers=headers) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data.get("results", []):
-                        results.append({
-                            "title": item.get("title", "Untitled"),
-                            "desc": f"By: {item.get('creator', 'Unknown')} | License: {item.get('license', 'CC')}",
-                            "url": item.get("foreign_landing_url", item.get("url", "")),
-                            "thumbnail": item.get("thumbnail", ""),
-                            "download": item.get("url", ""),
-                            "type": "image",
-                            "source": "Openverse",
-                            "license": item.get("license", "CC"),
-                            "creator": item.get("creator", "Unknown"),
-                        })
-        except Exception as e:
-            logger.error(f"Openverse search error: {e}")
-        return results
-    
-    async def search_jikan(self, query, limit=10, page=1):
-        """Search MyAnimeList via Jikan API"""
-        results = []
-        try:
-            session = await self.get_session()
-            url = f"https://api.jikan.moe/v4/anime?q={quote_plus(query)}&limit={limit}&page={page}"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data.get("data", []):
-                        score = item.get("score", "N/A")
-                        episodes = item.get("episodes", "?")
-                        status = item.get("status", "Unknown")
-                        results.append({
-                            "title": item.get("title", "Unknown"),
-                            "desc": f"⭐ {score} | 📺 {episodes} eps | {status}\n{(item.get('synopsis', '') or '')[:150]}",
-                            "url": item.get("url", ""),
-                            "thumbnail": item.get("images", {}).get("jpg", {}).get("image_url", ""),
-                            "type": "anime",
-                            "source": "MyAnimeList",
-                            "score": score,
-                            "episodes": episodes,
-                        })
-        except Exception as e:
-            logger.error(f"Jikan search error: {e}")
-        return results
-    
-    async def search_kitsu(self, query, limit=10, page=1):
-        """Search Kitsu anime database"""
-        results = []
-        try:
-            session = await self.get_session()
-            offset = (page - 1) * limit
-            url = f"https://kitsu.io/api/edge/anime?filter[text]={quote_plus(query)}&page[limit]={limit}&page[offset]={offset}"
-            headers = {"Accept": "application/vnd.api+json"}
-            async with session.get(url, headers=headers) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data.get("data", []):
-                        attrs = item.get("attributes", {})
-                        results.append({
-                            "title": attrs.get("canonicalTitle", "Unknown"),
-                            "desc": (attrs.get("synopsis", "") or "")[:200],
-                            "url": f"https://kitsu.io/anime/{item.get('id', '')}",
-                            "thumbnail": (attrs.get("posterImage", {}) or {}).get("small", ""),
-                            "type": "anime",
-                            "source": "Kitsu",
-                            "score": attrs.get("averageRating", "N/A"),
-                        })
-        except Exception as e:
-            logger.error(f"Kitsu search error: {e}")
-        return results
-    
-    async def search_gutenberg(self, query, limit=10, page=1):
-        """Search Project Gutenberg books"""
-        results = []
-        try:
-            session = await self.get_session()
-            url = f"https://gutendex.com/books/?search={quote_plus(query)}&page={page}"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data.get("results", [])[:limit]:
-                        authors = ", ".join([a.get("name", "") for a in item.get("authors", [])])
-                        formats = item.get("formats", {})
-                        download_url = formats.get("text/plain; charset=utf-8", 
-                                      formats.get("text/plain", 
-                                      formats.get("application/epub+zip", "")))
-                        results.append({
-                            "title": item.get("title", "Unknown"),
-                            "desc": f"✍️ {authors}\n📥 Downloads: {item.get('download_count', 0)}",
-                            "url": f"https://www.gutenberg.org/ebooks/{item.get('id', '')}",
-                            "download": download_url,
-                            "type": "book",
-                            "source": "Project Gutenberg",
-                            "author": authors,
-                        })
-        except Exception as e:
-            logger.error(f"Gutenberg search error: {e}")
-        return results
-    
-    async def search_openlibrary(self, query, limit=10, page=1):
-        """Search Open Library"""
-        results = []
-        try:
-            session = await self.get_session()
-            url = f"https://openlibrary.org/search.json?q={quote_plus(query)}&limit={limit}&page={page}"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data.get("docs", []):
-                        cover_id = item.get("cover_i", "")
-                        cover_url = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg" if cover_id else ""
-                        authors = ", ".join(item.get("author_name", ["Unknown"]))
-                        key = item.get("key", "")
-                        results.append({
-                            "title": item.get("title", "Unknown"),
-                            "desc": f"✍️ {authors}\n📅 {item.get('first_publish_year', 'N/A')}",
-                            "url": f"https://openlibrary.org{key}",
-                            "thumbnail": cover_url,
-                            "type": "book",
-                            "source": "Open Library",
-                            "author": authors,
-                        })
-        except Exception as e:
-            logger.error(f"Open Library search error: {e}")
-        return results
-    
-    async def search_github(self, query, limit=10, page=1):
-        """Search GitHub repositories"""
-        results = []
-        try:
-            session = await self.get_session()
-            url = f"https://api.github.com/search/repositories?q={quote_plus(query)}&per_page={limit}&page={page}&sort=stars"
-            headers = {"Accept": "application/vnd.github.v3+json"}
-            async with session.get(url, headers=headers) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data.get("items", []):
-                        results.append({
-                            "title": item.get("full_name", "Unknown"),
-                            "desc": f"⭐ {item.get('stargazers_count', 0)} | 🍴 {item.get('forks_count', 0)} | {item.get('language', 'N/A')}\n{(item.get('description', '') or '')[:150]}",
-                            "url": item.get("html_url", ""),
-                            "type": "code",
-                            "source": "GitHub",
-                            "stars": item.get("stargazers_count", 0),
-                        })
-        except Exception as e:
-            logger.error(f"GitHub search error: {e}")
-        return results
-    
-    async def search_nasa(self, query, media_type="image", limit=10, page=1):
-        """Search NASA Image and Video Library"""
-        results = []
-        try:
-            session = await self.get_session()
-            url = f"https://images-api.nasa.gov/search?q={quote_plus(query)}&media_type={media_type}&page={page}"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    items = data.get("collection", {}).get("items", [])[:limit]
-                    for item in items:
-                        item_data = item.get("data", [{}])[0]
-                        links = item.get("links", [{}])
-                        thumb = links[0].get("href", "") if links else ""
-                        results.append({
-                            "title": item_data.get("title", "Unknown"),
-                            "desc": (item_data.get("description", "") or "")[:200],
-                            "url": item.get("href", ""),
-                            "thumbnail": thumb,
-                            "type": media_type,
-                            "source": "NASA",
-                            "date": item_data.get("date_created", "N/A"),
-                        })
-        except Exception as e:
-            logger.error(f"NASA search error: {e}")
-        return results
-    
-    async def search_wikipedia(self, query, limit=10):
-        """Search Wikipedia"""
-        results = []
-        try:
-            session = await self.get_session()
-            url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={quote_plus(query)}&format=json&srlimit={limit}"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data.get("query", {}).get("search", []):
-                        title = item.get("title", "")
-                        snippet = item.get("snippet", "")
-                        # Remove HTML tags from snippet
-                        import re
-                        snippet = re.sub(r'<[^>]+>', '', snippet)
-                        results.append({
-                            "title": title,
-                            "desc": snippet[:200],
-                            "url": f"https://en.wikipedia.org/wiki/{quote_plus(title.replace(' ', '_'))}",
-                            "type": "article",
-                            "source": "Wikipedia",
-                        })
-        except Exception as e:
-            logger.error(f"Wikipedia search error: {e}")
-        return results
-    
-    async def search_wallhaven(self, query, limit=10, page=1):
-        """Search Wallhaven wallpapers"""
-        results = []
-        try:
-            session = await self.get_session()
-            url = f"https://wallhaven.cc/api/v1/search?q={quote_plus(query)}&page={page}"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data.get("data", [])[:limit]:
-                        results.append({
-                            "title": f"Wallhaven #{item.get('id', '')}",
-                            "desc": f"📐 {item.get('resolution', 'N/A')} | 👁️ {item.get('views', 0)} views | ❤️ {item.get('favorites', 0)} favs",
-                            "url": item.get("url", ""),
-                            "thumbnail": item.get("thumbs", {}).get("small", ""),
-                            "download": item.get("path", ""),
-                            "type": "wallpaper",
-                            "source": "Wallhaven",
-                            "resolution": item.get("resolution", ""),
-                        })
-        except Exception as e:
-            logger.error(f"Wallhaven search error: {e}")
-        return results
-    
-    async def search_met_museum(self, query, limit=10):
-        """Search Metropolitan Museum of Art"""
-        results = []
-        try:
-            session = await self.get_session()
-            search_url = f"https://collectionapi.metmuseum.org/public/collection/v1/search?q={quote_plus(query)}&hasImages=true"
-            async with session.get(search_url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    object_ids = data.get("objectIDs", [])[:limit]
-                    for obj_id in object_ids:
-                        try:
-                            detail_url = f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{obj_id}"
-                            async with session.get(detail_url) as detail_resp:
-                                if detail_resp.status == 200:
-                                    obj = await detail_resp.json()
-                                    results.append({
-                                        "title": obj.get("title", "Unknown"),
-                                        "desc": f"🎨 {obj.get('artistDisplayName', 'Unknown Artist')} | 📅 {obj.get('objectDate', 'N/A')}\n{obj.get('medium', '')}",
-                                        "url": obj.get("objectURL", ""),
-                                        "thumbnail": obj.get("primaryImageSmall", ""),
-                                        "download": obj.get("primaryImage", ""),
-                                        "type": "artwork",
-                                        "source": "Met Museum",
-                                    })
-                        except:
-                            continue
-        except Exception as e:
-            logger.error(f"Met Museum search error: {e}")
-        return results
-    
-    async def search_huggingface(self, query, limit=10):
-        """Search Hugging Face datasets"""
-        results = []
-        try:
-            session = await self.get_session()
-            url = f"https://huggingface.co/api/datasets?search={quote_plus(query)}&limit={limit}"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data:
-                        results.append({
-                            "title": item.get("id", "Unknown"),
-                            "desc": f"📥 {item.get('downloads', 0)} downloads | ❤️ {item.get('likes', 0)} likes",
-                            "url": f"https://huggingface.co/datasets/{item.get('id', '')}",
-                            "type": "dataset",
-                            "source": "Hugging Face",
-                        })
-        except Exception as e:
-            logger.error(f"Hugging Face search error: {e}")
-        return results
-    
-    async def search_google_books(self, query, limit=10, page=1):
-        """Search Google Books"""
-        results = []
-        try:
-            session = await self.get_session()
-            offset = (page - 1) * limit
-            url = f"https://www.googleapis.com/books/v1/volumes?q={quote_plus(query)}&maxResults={limit}&startIndex={offset}"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    for item in data.get("items", []):
-                        vol = item.get("volumeInfo", {})
-                        authors = ", ".join(vol.get("authors", ["Unknown"]))
-                        thumb = vol.get("imageLinks", {}).get("thumbnail", "")
-                        results.append({
-                            "title": vol.get("title", "Unknown"),
-                            "desc": f"✍️ {authors} | 📅 {vol.get('publishedDate', 'N/A')}\n{(vol.get('description', '') or '')[:150]}",
-                            "url": vol.get("infoLink", vol.get("previewLink", "")),
-                            "thumbnail": thumb,
-                            "type": "book",
-                            "source": "Google Books",
-                        })
-        except Exception as e:
-            logger.error(f"Google Books search error: {e}")
-        return results
-    
-    async def universal_search(self, query, category="all", limit=5, page=1):
-        """Search across multiple databases simultaneously"""
-        all_results = []
-        tasks = []
-        
-        search_map = {
-            "movies": [
-                ("archive_movies", self.search_archive_org, {"query": f"{query} collection:feature_films", "limit": limit, "page": page}),
-            ],
-            "videos": [
-                ("archive_videos", self.search_archive_org, {"query": f"{query} mediatype:movies", "limit": limit, "page": page}),
-                ("nasa_videos", self.search_nasa, {"query": query, "media_type": "video", "limit": limit, "page": page}),
-            ],
-            "images": [
-                ("openverse", self.search_openverse, {"query": query, "limit": limit, "page": page}),
-                ("nasa_images", self.search_nasa, {"query": query, "media_type": "image", "limit": limit, "page": page}),
-            ],
-            "wallpapers": [
-                ("wallhaven", self.search_wallhaven, {"query": query, "limit": limit, "page": page}),
-            ],
-            "anime": [
-                ("jikan", self.search_jikan, {"query": query, "limit": limit, "page": page}),
-                ("kitsu", self.search_kitsu, {"query": query, "limit": limit, "page": page}),
-            ],
-            "music": [
-                ("archive_audio", self.search_archive_org, {"query": f"{query} mediatype:audio", "limit": limit, "page": page}),
-            ],
-            "books": [
-                ("gutenberg", self.search_gutenberg, {"query": query, "limit": limit, "page": page}),
-                ("openlibrary", self.search_openlibrary, {"query": query, "limit": limit, "page": page}),
-                ("google_books", self.search_google_books, {"query": query, "limit": limit, "page": page}),
-            ],
-            "code": [
-                ("github", self.search_github, {"query": query, "limit": limit, "page": page}),
-            ],
-            "datasets": [
-                ("huggingface", self.search_huggingface, {"query": query, "limit": limit}),
-            ],
-            "science": [
-                ("wikipedia", self.search_wikipedia, {"query": query, "limit": limit}),
-            ],
-        }
-        
-        if category == "all":
-            for cat_searches in search_map.values():
-                for name, func, kwargs in cat_searches:
-                    tasks.append((name, func(**kwargs)))
-        elif category in search_map:
-            for name, func, kwargs in search_map[category]:
-                tasks.append((name, func(**kwargs)))
-        
-        if tasks:
-            gathered = await asyncio.gather(*[t[1] for t in tasks], return_exceptions=True)
-            for i, result in enumerate(gathered):
-                if isinstance(result, list):
-                    all_results.extend(result)
-                elif isinstance(result, Exception):
-                    logger.error(f"Search error in {tasks[i][0]}: {result}")
-        
-        return all_results
-
-# Global search engine instance
-search_engine = MediaSearchEngine()
-
-# ═══════════════════════════════════════════════════════════
-# 📱 BOT HANDLERS
-# ═══════════════════════════════════════════════════════════
-
-# User states for conversation
-USER_STATES = {}
-
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /start command with stylish welcome"""
-    user = update.effective_user
-    name = user.first_name or "User"
-    
-    welcome = f"""
-╔══════════════════════════════════╗
-┃  {SYM['crown']} 𝓤𝓛𝓣𝓘𝓜𝓐𝓣𝓔  𝓜𝓔𝓓𝓘𝓐  𝓑𝓞𝓣 {SYM['crown']}  ┃
-╚══════════════════════════════════╝
-
-{SYM['spark']} 𝓦𝓮𝓵𝓬𝓸𝓶𝓮, {stylish_text(name, 'bold')}! {SYM['spark']}
-
-◈━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◈
-
-{SYM['robot']} {stylish_text('FEATURES', 'double')}:
-
-{SYM['fire']} 🔍 𝗨𝗻𝗶𝘃𝗲𝗿𝘀𝗮𝗹 𝗦𝗲𝗮𝗿𝗰𝗵
-   ↳ {stylish_text('100+ open databases', 'italic')} at once
-
-{SYM['fire']} 🎬 𝗠𝗼𝘃𝗶𝗲𝘀 & 𝗙𝗶𝗹𝗺𝘀
-   ↳ Archive · TMDB · Public Domain
-
-{SYM['fire']} 🖼️ 𝗜𝗺𝗮𝗴𝗲𝘀 & 𝗣𝗵𝗼𝘁𝗼𝘀
-   ↳ Openverse · NASA · Museums (800M+)
-
-{SYM['fire']} 🌸 𝗔𝗻𝗶𝗺𝗲 𝗗𝗮𝘁𝗮𝗯𝗮𝘀𝗲
-   ↳ MAL · AniList · Kitsu
-
-{SYM['fire']} 🎵 𝗠𝘂𝘀𝗶𝗰 & 𝗔𝘂𝗱𝗶𝗼
-   ↳ FMA · Jamendo · Freesound
-
-{SYM['fire']} 📚 𝗕𝗼𝗼𝗸𝘀 & 𝗣𝗮𝗽𝗲𝗿𝘀
-   ↳ Gutenberg · Open Library · arXiv
-
-{SYM['fire']} 💻 𝗖𝗼𝗱𝗲 & 𝗗𝗮𝘁𝗮𝘀𝗲𝘁𝘀
-   ↳ GitHub · HuggingFace · Kaggle
-
-{SYM['fire']} 🧊 𝟯𝗗 𝗠𝗼𝗱𝗲𝗹𝘀
-   ↳ Sketchfab · Thingiverse · NASA 3D
-
-◈━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◈
-
-{SYM['arrow']} {stylish_text('Quick Start', 'bold')}:
-   {SYM['dot']} 𝗝𝘂𝘀𝘁 𝘁𝘆𝗽𝗲 𝗮𝗻𝘆𝘁𝗵𝗶𝗻𝗴 𝘁𝗼 𝘀𝗲𝗮𝗿𝗰𝗵!
-   {SYM['dot']} /search [query] — quick search
-   {SYM['dot']} /categories — browse by type
-   {SYM['dot']} /help — all commands
-
-◈━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◈
-
-{SYM['globe']} {stylish_text('100+ Open Databases', 'bold')} {SYM['dot']} {stylish_text('Billions of Files', 'italic')}
-{SYM['infinity']} {stylish_text('Free Forever', 'bold_italic')} {SYM['diamond']} {stylish_text('Zero Limits', 'bold_italic')}
-
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-"""
-    
-    keyboard = [
-        [
-            InlineKeyboardButton(f"{SYM['magnify']} Universal Search", callback_data="cat_all"),
-            InlineKeyboardButton(f"{SYM['folder']} Categories", callback_data="categories"),
-        ],
-        [
-            InlineKeyboardButton(f"{SYM['film']} Movies", callback_data="cat_movies"),
-            InlineKeyboardButton(f"{SYM['camera']} Images", callback_data="cat_images"),
-            InlineKeyboardButton(f"{SYM['anime']} Anime", callback_data="cat_anime"),
-        ],
-        [
-            InlineKeyboardButton(f"{SYM['music']} Music", callback_data="cat_music"),
-            InlineKeyboardButton(f"{SYM['book']} Books", callback_data="cat_books"),
-            InlineKeyboardButton(f"{SYM['game']} Games", callback_data="cat_games"),
-        ],
-        [
-            InlineKeyboardButton(f"{SYM['wallpaper']} Wallpapers", callback_data="cat_wallpapers"),
-            InlineKeyboardButton(f"{SYM['code']} Code", callback_data="cat_code"),
-            InlineKeyboardButton(f"{SYM['ai']} Datasets", callback_data="cat_datasets"),
-        ],
-        [
-            InlineKeyboardButton(f"{SYM['three_d']} 3D Models", callback_data="cat_three_d"),
-            InlineKeyboardButton(f"{SYM['globe']} Maps", callback_data="cat_maps"),
-            InlineKeyboardButton(f"{SYM['science']} Science", callback_data="cat_science"),
-        ],
-        [
-            InlineKeyboardButton(f"{SYM['art']} Design", callback_data="cat_design"),
-            InlineKeyboardButton(f"{SYM['tv']} Videos", callback_data="cat_videos"),
-            InlineKeyboardButton(f"{SYM['news']} News", callback_data="cat_news"),
-        ],
-        [
-            InlineKeyboardButton(f"{SYM['scroll']} All Databases ({sum(len(v['sources']) for v in DATABASES.values())}+)", callback_data="all_databases"),
-        ],
-        [
-            InlineKeyboardButton(f"❓ Help", callback_data="help"),
-            InlineKeyboardButton(f"📊 Stats", callback_data="stats"),
-        ],
-    ]
-    
-    await update.message.reply_text(
-        welcome,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        disable_web_page_preview=True
-    )
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /help command"""
-    help_text = f"""
-{SYM['line5']}
-{SYM['line7']}  {SYM['book']} {stylish_text('HELP & COMMANDS', 'bold')} {SYM['book']}
-{SYM['line6']}
-
-{SYM['arrow']} {stylish_text('Search Commands', 'bold')}:
-
-  {SYM['dot']} /search <query> — Universal search
-  {SYM['dot']} /movie <name> — Search movies
-  {SYM['dot']} /image <query> — Search images
-  {SYM['dot']} /anime <name> — Search anime
-  {SYM['dot']} /music <query> — Search music
-  {SYM['dot']} /book <title> — Search books
-  {SYM['dot']} /video <query> — Search videos
-  {SYM['dot']} /wallpaper <query> — Search wallpapers
-  {SYM['dot']} /code <query> — Search GitHub repos
-  {SYM['dot']} /dataset <query> — Search AI datasets
-  {SYM['dot']} /three_d <query> — Search 3D models
-  {SYM['dot']} /wiki <query> — Search Wikipedia
-  {SYM['dot']} /nasa <query> — Search NASA media
-
-{SYM['line4']}
-
-{SYM['arrow']} {stylish_text('Browse Commands', 'bold')}:
-
-  {SYM['dot']} /categories — All media categories
-  {SYM['dot']} /databases — List all 100+ databases
-  {SYM['dot']} /sources <category> — Sources for category
-  {SYM['dot']} /stats — Bot statistics
-  {SYM['dot']} /random — Random media discovery
-
-{SYM['line4']}
-
-{SYM['arrow']} {stylish_text('Advanced Search', 'bold')}:
-
-  {SYM['dot']} /advsearch — Advanced search with filters
-  {SYM['dot']} Type query directly → auto-search
-  {SYM['dot']} Reply with page number → next page
-
-{SYM['line4']}
-
-{SYM['arrow']} {stylish_text('Tips', 'bold_italic')}:
-  {SYM['star']} Just type anything to search!
-  {SYM['star']} Use category buttons for focused search
-  {SYM['star']} Click {SYM['link']} buttons to open in browser
-  {SYM['star']} Use ➡️ Next buttons for more results
-
-{SYM['line3']}
-"""
-    
-    keyboard = [
-        [InlineKeyboardButton(f"{SYM['arrow2']} Back to Menu", callback_data="back_to_start")]
-    ]
-    
-    if update.callback_query:
-        await update.callback_query.edit_message_text(
-            help_text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            disable_web_page_preview=True
-        )
-    else:
-        await update.message.reply_text(
-            help_text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            disable_web_page_preview=True
-        )
-
-
-async def categories_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show all categories with stylish design"""
-    text = f"""
-{SYM['line5']}
-{SYM['line7']}  {SYM['folder']} {stylish_text('MEDIA CATEGORIES', 'bold')} {SYM['folder']}
-{SYM['line6']}
-
-{SYM['spark']} {stylish_text('Choose a category to explore', 'italic')}:
-
-"""
-    
-    total_sources = 0
-    for key, cat in DATABASES.items():
-        count = len(cat["sources"])
-        total_sources += count
-        text += f"  {cat['icon']} {cat['title']} — {count} sources\n"
-    
-    text += f"""
-{SYM['line4']}
-
-{SYM['globe']} {stylish_text('Total', 'bold')}: {total_sources}+ Open Databases
-{SYM['infinity']} {stylish_text('Billions of free media files', 'italic')}
-
-{SYM['line3']}
-"""
-    
-    keyboard = []
-    cats = list(DATABASES.items())
-    for i in range(0, len(cats), 3):
-        row = []
-        for j in range(i, min(i+3, len(cats))):
-            key, cat = cats[j]
-            row.append(InlineKeyboardButton(
-                f"{cat['icon']} {key.replace('_',' ').title()}", 
-                callback_data=f"cat_{key}"
-            ))
-        keyboard.append(row)
-    
-    keyboard.append([
-        InlineKeyboardButton(f"{SYM['magnify']} Search All", callback_data="cat_all"),
-        InlineKeyboardButton(f"{SYM['arrow2']} Back", callback_data="back_to_start"),
-    ])
-    
-    if update.callback_query:
-        await update.callback_query.edit_message_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            disable_web_page_preview=True
-        )
-    else:
-        await update.message.reply_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            disable_web_page_preview=True
-        )
-
-
-async def show_category_sources(update: Update, context: ContextTypes.DEFAULT_TYPE, category: str):
-    """Show all sources for a specific category"""
-    if category not in DATABASES:
-        return
-    
-    cat = DATABASES[category]
-    text = f"""
-{SYM['line5']}
-{SYM['line7']}  {cat['icon']} {cat['title']} {cat['icon']}
-{SYM['line6']}
-
-{SYM['spark']} {stylish_text(cat['desc'], 'italic')}
-
-{SYM['line4']}
-"""
-    
-    for i, src in enumerate(cat["sources"], 1):
-        text += f"""
-{SYM['diamond']} {src['icon']} {stylish_text(src['name'], 'bold')}
-   {SYM['dot']} {src['desc']}
-   {SYM['dot']} {SYM['unlock']} {src['license']} | {SYM['package']} {src['count']}
-   {SYM['dot']} {SYM['link']} {src['url']}
-"""
-    
-    text += f"""
-{SYM['line4']}
-
-{SYM['magnify']} {stylish_text('Send me a search query for this category!', 'bold_italic')}
-{SYM['arrow']} Or type: /{'movie' if category == 'movies' else category} <your query>
-
-{SYM['line3']}
-"""
-    
-    keyboard = [
-        [InlineKeyboardButton(
-            f"{SYM['magnify']} Search in {cat['title']}", 
-            callback_data=f"search_in_{category}"
-        )],
-    ]
-    
-    # Add source links as buttons (max 8)
-    for i in range(0, min(len(cat["sources"]), 8), 2):
-        row = []
-        for j in range(i, min(i+2, len(cat["sources"]), 8)):
-            src = cat["sources"][j]
-            row.append(InlineKeyboardButton(
-                f"{src['icon']} {src['name'][:20]}", 
-                url=src["url"]
-            ))
-        keyboard.append(row)
-    
-    keyboard.append([
-        InlineKeyboardButton(f"{SYM['folder']} Categories", callback_data="categories"),
-        InlineKeyboardButton(f"{SYM['arrow2']} Back", callback_data="back_to_start"),
-    ])
-    
-    if update.callback_query:
-        try:
-            await update.callback_query.edit_message_text(
-                text,
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                disable_web_page_preview=True
-            )
-        except Exception:
-            await update.callback_query.message.reply_text(
-                text,
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                disable_web_page_preview=True
-            )
-    else:
-        await update.message.reply_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            disable_web_page_preview=True
-        )
-
-
-async def all_databases_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show ALL databases from ALL categories"""
-    text = f"""
-{SYM['line5']}
-{SYM['line7']}  {SYM['globe']} {stylish_text('ALL OPEN DATABASES', 'bold')} {SYM['globe']}
-{SYM['line6']}
-
-"""
-    
-    total = 0
-    for key, cat in DATABASES.items():
-        text += f"\n{cat['icon']} {stylish_text(cat['title'], 'bold')} ({len(cat['sources'])} sources)\n"
-        text += f"{SYM['dotline']}\n"
-        for src in cat["sources"]:
-            total += 1
-            text += f"  {src['icon']} {src['name']} — {src['count']}\n"
-    
-    text += f"""
-{SYM['line4']}
-{SYM['crown']} {stylish_text(f'Total: {total}+ Open Databases', 'bold')}
-{SYM['line3']}
-"""
-    
-    # Split if too long
-    if len(text) > 4096:
-        parts = []
-        current = ""
-        for line in text.split('\n'):
-            if len(current) + len(line) + 1 > 4000:
-                parts.append(current)
-                current = line
-            else:
-                current += '\n' + line
-        if current:
-            parts.append(current)
-        
-        for i, part in enumerate(parts):
-            keyboard = []
-            if i == len(parts) - 1:
-                keyboard = [[
-                    InlineKeyboardButton(f"{SYM['arrow2']} Back", callback_data="back_to_start")
-                ]]
-            
-            if update.callback_query and i == 0:
-                await update.callback_query.edit_message_text(
-                    part, 
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None,
-                    disable_web_page_preview=True
+            data = await self.download_bytes(image_url, max_size=10*1024*1024)
+            if data:
+                await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=data,
+                    caption=caption[:1024],
+                    read_timeout=30,
+                    write_timeout=30
                 )
+                return True
             else:
-                msg = update.callback_query.message if update.callback_query else update.message
-                await msg.reply_text(
-                    part,
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None,
-                    disable_web_page_preview=True
+                # Try sending URL directly
+                await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=image_url,
+                    caption=caption[:1024],
+                    read_timeout=30,
+                    write_timeout=30
                 )
-    else:
-        keyboard = [[
-            InlineKeyboardButton(f"{SYM['arrow2']} Back", callback_data="back_to_start")
-        ]]
-        if update.callback_query:
-            await update.callback_query.edit_message_text(
-                text, reply_markup=InlineKeyboardMarkup(keyboard),
-                disable_web_page_preview=True
-            )
-        else:
-            await update.message.reply_text(
-                text, reply_markup=InlineKeyboardMarkup(keyboard),
-                disable_web_page_preview=True
-            )
-
-
-
-# ═══════════════════════════════════════════════════════════
-# 📨 SEND FILE TO CHAT — Memory-Safe Logic for Render
-# ═══════════════════════════════════════════════════════════
-
-TELEGRAM_MAX_BYTES = 50 * 1024 * 1024  # 50 MB hard limit
-
-async def send_file_to_chat(context, chat_id, result: dict):
-    """
-    Send a media file to a Telegram chat.
-    Strategy:
-      1. Try direct URL send via Telegram API (no disk usage).
-      2. On failure → temp download → upload → IMMEDIATE os.remove().
-    """
-    url      = result.get("download") or result.get("url", "")
-    title    = (result.get("title") or "media")[:60]
-    r_type   = result.get("type", "media")
-    caption  = (
-        f"{SYM['film']} {stylish_text(title, 'bold')}\n"
-        f"{SYM['dot']} {stylish_text('Source', 'italic')}: {result.get('source', 'Unknown')}\n"
-        f"{SYM['link']} {url}"
-    )
-
-    if not url:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"{SYM['cross']} {stylish_text('No downloadable link found for this item.', 'bold')}"
-        )
-        return
-
-    # ── Helpers ────────────────────────────────────────────
-    async def _try_direct():
-        """Attempt to send using direct URL (zero disk usage)."""
-        try:
-            if r_type in ("image", "wallpaper", "artwork"):
-                await context.bot.send_photo(chat_id=chat_id, photo=url, caption=caption)
-            elif r_type in ("audio", "music"):
-                await context.bot.send_audio(chat_id=chat_id, audio=url, caption=caption)
-            elif r_type in ("video", "movies", "anime"):
-                await context.bot.send_video(chat_id=chat_id, video=url, caption=caption)
-            else:
-                await context.bot.send_document(chat_id=chat_id, document=url, caption=caption)
-            return True
+                return True
         except Exception as e:
-            logger.warning(f"Direct URL send failed ({e}), switching to temp download...")
+            logger.error(f"Send photo error: {e}")
             return False
 
-    async def _try_temp_download():
-        """Download to /tmp, upload to Telegram, delete immediately."""
-        tmp_path = None
+    async def send_video_telegram(self, bot, chat_id, video_url, caption="", thumb_url=None):
+        """Download video and send as Telegram video"""
         try:
-            async with aiohttp.ClientSession() as sess:
-                async with sess.get(url, timeout=aiohttp.ClientTimeout(total=120)) as resp:
-                    if resp.status != 200:
-                        raise Exception(f"HTTP {resp.status}")
-                    # Check Content-Length before downloading
-                    content_length = int(resp.headers.get("Content-Length", 0))
-                    if content_length and content_length > TELEGRAM_MAX_BYTES:
-                        size_mb = content_length / (1024 * 1024)
-                        await context.bot.send_message(
-                            chat_id=chat_id,
-                            text=(
-                                f"{SYM['cross']} {stylish_text('File Too Large!', 'bold')}\n\n"
-                                f"{SYM['dot']} Size: {size_mb:.1f} MB\n"
-                                f"{SYM['dot']} Telegram bot limit: 50 MB\n\n"
-                                f"{SYM['link']} {stylish_text('Direct download link:', 'italic')}\n{url}"
-                            )
+            data = await self.download_bytes(video_url, max_size=45*1024*1024)
+            if data:
+                thumb_data = None
+                if thumb_url:
+                    thumb_data = await self.download_bytes(thumb_url, max_size=1*1024*1024)
+                await bot.send_video(
+                    chat_id=chat_id,
+                    video=data,
+                    caption=caption[:1024],
+                    thumbnail=thumb_data,
+                    read_timeout=60,
+                    write_timeout=60,
+                    supports_streaming=True
+                )
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Send video error: {e}")
+            return False
+
+    async def send_audio_telegram(self, bot, chat_id, audio_url, caption="", title=""):
+        """Download audio and send as Telegram audio"""
+        try:
+            data = await self.download_bytes(audio_url, max_size=45*1024*1024)
+            if data:
+                await bot.send_audio(
+                    chat_id=chat_id,
+                    audio=data,
+                    caption=caption[:1024],
+                    title=title,
+                    read_timeout=60,
+                    write_timeout=60
+                )
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Send audio error: {e}")
+            return False
+
+    async def send_document_telegram(self, bot, chat_id, doc_url, caption="", filename=""):
+        """Download file and send as Telegram document"""
+        try:
+            data = await self.download_bytes(doc_url, max_size=45*1024*1024)
+            if data:
+                await bot.send_document(
+                    chat_id=chat_id,
+                    document=data,
+                    caption=caption[:1024],
+                    filename=filename or "file",
+                    read_timeout=60,
+                    write_timeout=60
+                )
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Send document error: {e}")
+            return False
+
+
+# Global instances
+downloader = MediaDownloader()
+USER_DATA = {}
+
+# ══════════════════════════════════════════
+#  𝗔𝗣𝗜 𝗦𝗘𝗔𝗥𝗖𝗛 𝗘𝗡𝗚𝗜𝗡𝗘𝗦
+# ══════════════════════════════════════════
+
+async def get_session():
+    return await downloader.get_session()
+
+# ── IMAGES: Openverse (800M+ CC images) ──
+
+async def search_openverse_images(query, page=1, limit=8):
+    results = []
+    try:
+        session = await get_session()
+        url = f"https://api.openverse.org/v1/images/?q={quote_plus(query)}&page={page}&page_size={limit}"
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for item in data.get("results", []):
+                    results.append({
+                        "type": "image",
+                        "title": item.get("title", "Untitled") or "Untitled",
+                        "creator": item.get("creator", "Unknown") or "Unknown",
+                        "license": item.get("license", "CC") or "CC",
+                        "image_url": item.get("url", ""),
+                        "thumbnail": item.get("thumbnail", "") or item.get("url", ""),
+                        "source": item.get("source", "Openverse"),
+                        "width": item.get("width", 0),
+                        "height": item.get("height", 0),
+                    })
+    except Exception as e:
+        logger.error(f"Openverse error: {e}")
+    return results
+
+# ── IMAGES: Wikimedia Commons ──
+
+async def search_wikimedia_images(query, limit=5):
+    results = []
+    try:
+        session = await get_session()
+        url = (f"https://commons.wikimedia.org/w/api.php?"
+               f"action=query&generator=search&gsrnamespace=6&gsrsearch={quote_plus(query)}"
+               f"&gsrlimit={limit}&prop=imageinfo&iiprop=url|size|mime|extmetadata"
+               f"&format=json&iiurlwidth=800")
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                pages = data.get("query", {}).get("pages", {})
+                for pid, page_data in pages.items():
+                    ii = page_data.get("imageinfo", [{}])[0]
+                    mime = ii.get("mime", "")
+                    if "image" not in mime:
+                        continue
+                    thumb = ii.get("thumburl", ii.get("url", ""))
+                    full_url = ii.get("url", "")
+                    title = page_data.get("title", "").replace("File:", "")
+                    meta = ii.get("extmetadata", {})
+                    artist = meta.get("Artist", {}).get("value", "Unknown")
+                    artist = re.sub(r'<[^>]+>', '', str(artist))[:50]
+                    results.append({
+                        "type": "image",
+                        "title": title,
+                        "creator": artist,
+                        "license": meta.get("LicenseShortName", {}).get("value", "CC"),
+                        "image_url": full_url,
+                        "thumbnail": thumb,
+                        "source": "Wikimedia Commons",
+                        "width": ii.get("width", 0),
+                        "height": ii.get("height", 0),
+                    })
+    except Exception as e:
+        logger.error(f"Wikimedia error: {e}")
+    return results
+
+# ── IMAGES/VIDEOS: NASA ──
+
+async def search_nasa(query, media_type="image", limit=5):
+    results = []
+    try:
+        session = await get_session()
+        url = f"https://images-api.nasa.gov/search?q={quote_plus(query)}&media_type={media_type}&page_size={limit}"
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                items = data.get("collection", {}).get("items", [])[:limit]
+                for item in items:
+                    item_data = item.get("data", [{}])[0]
+                    links = item.get("links", [])
+                    thumb = links[0].get("href", "") if links else ""
+                    nasa_id = item_data.get("nasa_id", "")
+
+                    # Get actual media file
+                    media_url = ""
+                    if nasa_id:
+                        asset_url = f"https://images-api.nasa.gov/asset/{nasa_id}"
+                        try:
+                            async with session.get(asset_url) as aresp:
+                                if aresp.status == 200:
+                                    adata = await aresp.json()
+                                    collection_items = adata.get("collection", {}).get("items", [])
+                                    for ci in collection_items:
+                                        href = ci.get("href", "")
+                                        if media_type == "image" and any(href.lower().endswith(x) for x in ['.jpg', '.jpeg', '.png', '.webp']):
+                                            if "orig" in href or "large" in href:
+                                                media_url = href
+                                                break
+                                        elif media_type == "video" and any(href.lower().endswith(x) for x in ['.mp4', '.webm']):
+                                            if "orig" in href or "large" in href or "medium" in href:
+                                                media_url = href
+                                                break
+                                    if not media_url and collection_items:
+                                        for ci in collection_items:
+                                            href = ci.get("href", "")
+                                            if media_type == "image" and any(href.lower().endswith(x) for x in ['.jpg', '.jpeg', '.png']):
+                                                media_url = href
+                                                break
+                                            elif media_type == "video" and href.lower().endswith('.mp4'):
+                                                media_url = href
+                                                break
+                        except:
+                            pass
+
+                    if not media_url:
+                        media_url = thumb
+
+                    results.append({
+                        "type": media_type,
+                        "title": item_data.get("title", "NASA Media"),
+                        "desc": (item_data.get("description", "") or "")[:200],
+                        "media_url": media_url,
+                        "thumbnail": thumb,
+                        "source": "NASA",
+                        "date": item_data.get("date_created", "")[:10],
+                        "creator": item_data.get("photographer", "NASA"),
+                    })
+    except Exception as e:
+        logger.error(f"NASA error: {e}")
+    return results
+
+# ── WALLPAPERS: Wallhaven ──
+
+async def search_wallhaven(query, page=1, limit=8):
+    results = []
+    try:
+        session = await get_session()
+        url = f"https://wallhaven.cc/api/v1/search?q={quote_plus(query)}&page={page}&sorting=relevance&categories=111&purity=100"
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for item in data.get("data", [])[:limit]:
+                    results.append({
+                        "type": "image",
+                        "title": f"Wallpaper {item.get('id', '')}",
+                        "image_url": item.get("path", ""),
+                        "thumbnail": item.get("thumbs", {}).get("small", ""),
+                        "source": "Wallhaven",
+                        "resolution": item.get("resolution", ""),
+                        "views": item.get("views", 0),
+                        "favorites": item.get("favorites", 0),
+                        "creator": "Wallhaven Community",
+                        "license": "Wallhaven",
+                    })
+    except Exception as e:
+        logger.error(f"Wallhaven error: {e}")
+    return results
+
+# ── ANIME: Jikan (MyAnimeList) ──
+
+async def search_anime_jikan(query, page=1, limit=8):
+    results = []
+    try:
+        session = await get_session()
+        url = f"https://api.jikan.moe/v4/anime?q={quote_plus(query)}&limit={limit}&page={page}&sfw=true"
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for item in data.get("data", []):
+                    img = item.get("images", {}).get("jpg", {})
+                    trailer = item.get("trailer", {})
+                    results.append({
+                        "type": "anime",
+                        "title": item.get("title", "Unknown"),
+                        "title_jp": item.get("title_japanese", ""),
+                        "score": item.get("score", "N/A"),
+                        "episodes": item.get("episodes", "?"),
+                        "status": item.get("status", ""),
+                        "rating": item.get("rating", ""),
+                        "synopsis": (item.get("synopsis", "") or "")[:300],
+                        "image_url": img.get("large_image_url", img.get("image_url", "")),
+                        "thumbnail": img.get("small_image_url", img.get("image_url", "")),
+                        "trailer_url": trailer.get("url", ""),
+                        "trailer_embed": trailer.get("embed_url", ""),
+                        "genres": ", ".join([g.get("name", "") for g in item.get("genres", [])]),
+                        "year": item.get("year", ""),
+                        "source": "MyAnimeList",
+                        "mal_url": item.get("url", ""),
+                    })
+    except Exception as e:
+        logger.error(f"Jikan error: {e}")
+    return results
+
+# ── ANIME: Kitsu ──
+
+async def search_anime_kitsu(query, limit=5):
+    results = []
+    try:
+        session = await get_session()
+        url = f"https://kitsu.io/api/edge/anime?filter[text]={quote_plus(query)}&page[limit]={limit}"
+        headers = {"Accept": "application/vnd.api+json"}
+        async with session.get(url, headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for item in data.get("data", []):
+                    a = item.get("attributes", {})
+                    poster = a.get("posterImage", {}) or {}
+                    cover = a.get("coverImage", {}) or {}
+                    results.append({
+                        "type": "anime",
+                        "title": a.get("canonicalTitle", "Unknown"),
+                        "title_jp": a.get("titles", {}).get("ja_jp", ""),
+                        "score": a.get("averageRating", "N/A"),
+                        "episodes": a.get("episodeCount", "?"),
+                        "status": a.get("status", ""),
+                        "synopsis": (a.get("synopsis", "") or "")[:300],
+                        "image_url": poster.get("large", poster.get("medium", poster.get("original", ""))),
+                        "thumbnail": poster.get("small", poster.get("tiny", "")),
+                        "cover_url": cover.get("large", cover.get("original", "")),
+                        "source": "Kitsu",
+                    })
+    except Exception as e:
+        logger.error(f"Kitsu error: {e}")
+    return results
+
+# ── ANIME IMAGES: Waifu.pics ──
+
+async def get_waifu_image(category="waifu"):
+    try:
+        session = await get_session()
+        categories = ["waifu", "neko", "shinobu", "megumin", "bully", "cuddle",
+                      "cry", "hug", "awoo", "kiss", "lick", "pat", "smug",
+                      "bonk", "yeet", "blush", "smile", "wave", "highfive",
+                      "handhold", "nom", "bite", "glomp", "slap", "kill",
+                      "kick", "happy", "wink", "poke", "dance", "cringe"]
+        if category.lower() not in categories:
+            category = "waifu"
+        url = f"https://api.waifu.pics/sfw/{category.lower()}"
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                return data.get("url", "")
+    except:
+        pass
+    return ""
+
+async def get_waifu_many(category="waifu", count=5):
+    try:
+        session = await get_session()
+        url = f"https://api.waifu.pics/many/sfw/{category.lower()}"
+        async with session.post(url, json={}) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                return data.get("files", [])[:count]
+    except:
+        pass
+    return []
+
+# ── MUSIC: Internet Archive Audio ──
+
+async def search_archive_audio(query, limit=5, page=1):
+    results = []
+    try:
+        session = await get_session()
+        url = (f"https://archive.org/advancedsearch.php?"
+               f"q={quote_plus(query)}+mediatype:audio&output=json&rows={limit}&page={page}"
+               f"&fl[]=identifier,title,creator,description,date,downloads")
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for doc in data.get("response", {}).get("docs", []):
+                    identifier = doc.get("identifier", "")
+                    # Get actual audio file
+                    audio_url = ""
+                    try:
+                        files_url = f"https://archive.org/metadata/{identifier}/files"
+                        async with session.get(files_url) as fresp:
+                            if fresp.status == 200:
+                                fdata = await fresp.json()
+                                for f in fdata.get("result", []):
+                                    name = f.get("name", "")
+                                    if any(name.lower().endswith(x) for x in ['.mp3', '.ogg', '.flac', '.wav']):
+                                        audio_url = f"https://archive.org/download/{identifier}/{quote_plus(name)}"
+                                        break
+                    except:
+                        pass
+                    results.append({
+                        "type": "audio",
+                        "title": doc.get("title", "Unknown") if isinstance(doc.get("title"), str) else str(doc.get("title", "Unknown")),
+                        "creator": doc.get("creator", "Unknown") if isinstance(doc.get("creator"), str) else str(doc.get("creator", "Unknown")),
+                        "desc": (str(doc.get("description", "")) or "")[:200],
+                        "audio_url": audio_url,
+                        "page_url": f"https://archive.org/details/{identifier}",
+                        "downloads": doc.get("downloads", 0),
+                        "source": "Internet Archive",
+                    })
+    except Exception as e:
+        logger.error(f"Archive audio error: {e}")
+    return results
+
+# ── MOVIES/VIDEOS: Internet Archive ──
+
+async def search_archive_video(query, limit=5, page=1):
+    results = []
+    try:
+        session = await get_session()
+        url = (f"https://archive.org/advancedsearch.php?"
+               f"q={quote_plus(query)}+mediatype:movies&output=json&rows={limit}&page={page}"
+               f"&fl[]=identifier,title,creator,description,date,downloads")
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for doc in data.get("response", {}).get("docs", []):
+                    identifier = doc.get("identifier", "")
+                    video_url = ""
+                    thumb_url = f"https://archive.org/services/img/{identifier}"
+                    try:
+                        files_url = f"https://archive.org/metadata/{identifier}/files"
+                        async with session.get(files_url) as fresp:
+                            if fresp.status == 200:
+                                fdata = await fresp.json()
+                                best_size = 0
+                                for f in fdata.get("result", []):
+                                    name = f.get("name", "")
+                                    size = int(f.get("size", 0) or 0)
+                                    if any(name.lower().endswith(x) for x in ['.mp4', '.ogv', '.webm']):
+                                        # prefer mp4, under 45MB
+                                        if name.lower().endswith('.mp4') and size < 45*1024*1024:
+                                            if size > best_size:
+                                                video_url = f"https://archive.org/download/{identifier}/{quote_plus(name)}"
+                                                best_size = size
+                                if not video_url:
+                                    for f in fdata.get("result", []):
+                                        name = f.get("name", "")
+                                        size = int(f.get("size", 0) or 0)
+                                        if name.lower().endswith('.mp4') and size < 45*1024*1024:
+                                            video_url = f"https://archive.org/download/{identifier}/{quote_plus(name)}"
+                                            break
+                    except:
+                        pass
+                    results.append({
+                        "type": "video",
+                        "title": doc.get("title", "Unknown") if isinstance(doc.get("title"), str) else str(doc.get("title", "Unknown")),
+                        "creator": doc.get("creator", "Unknown") if isinstance(doc.get("creator"), str) else str(doc.get("creator", "Unknown")),
+                        "desc": (str(doc.get("description", ""))[:200]) if doc.get("description") else "",
+                        "video_url": video_url,
+                        "thumbnail": thumb_url,
+                        "page_url": f"https://archive.org/details/{identifier}",
+                        "downloads": doc.get("downloads", 0),
+                        "source": "Internet Archive",
+                    })
+    except Exception as e:
+        logger.error(f"Archive video error: {e}")
+    return results
+
+# ── BOOKS: Gutenberg ──
+
+async def search_gutenberg(query, limit=5, page=1):
+    results = []
+    try:
+        session = await get_session()
+        url = f"https://gutendex.com/books/?search={quote_plus(query)}&page={page}"
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for item in data.get("results", [])[:limit]:
+                    authors = ", ".join([a.get("name", "") for a in item.get("authors", [])])
+                    formats = item.get("formats", {})
+                    cover = formats.get("image/jpeg", "")
+                    txt_url = (formats.get("text/plain; charset=utf-8") or
+                              formats.get("text/plain; charset=us-ascii") or
+                              formats.get("text/plain", ""))
+                    epub_url = formats.get("application/epub+zip", "")
+                    results.append({
+                        "type": "book",
+                        "title": item.get("title", "Unknown"),
+                        "creator": authors or "Unknown",
+                        "cover_url": cover,
+                        "txt_url": txt_url,
+                        "epub_url": epub_url,
+                        "downloads": item.get("download_count", 0),
+                        "book_id": item.get("id", ""),
+                        "source": "Project Gutenberg",
+                        "subjects": ", ".join(item.get("subjects", [])[:3]),
+                    })
+    except Exception as e:
+        logger.error(f"Gutenberg error: {e}")
+    return results
+
+# ── CODE: GitHub ──
+
+async def search_github_repos(query, limit=5, page=1):
+    results = []
+    try:
+        session = await get_session()
+        url = f"https://api.github.com/search/repositories?q={quote_plus(query)}&per_page={limit}&page={page}&sort=stars"
+        headers = {"Accept": "application/vnd.github.v3+json"}
+        async with session.get(url, headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for item in data.get("items", []):
+                    owner = item.get("owner", {})
+                    results.append({
+                        "type": "code",
+                        "title": item.get("full_name", "Unknown"),
+                        "desc": (item.get("description", "") or "")[:200],
+                        "stars": item.get("stargazers_count", 0),
+                        "forks": item.get("forks_count", 0),
+                        "language": item.get("language", "N/A"),
+                        "avatar_url": owner.get("avatar_url", ""),
+                        "repo_url": item.get("html_url", ""),
+                        "source": "GitHub",
+                    })
+    except Exception as e:
+        logger.error(f"GitHub error: {e}")
+    return results
+
+# ── WIKIPEDIA ──
+
+async def search_wikipedia(query, limit=3):
+    results = []
+    try:
+        session = await get_session()
+        url = (f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote_plus(query)}")
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                thumb = data.get("thumbnail", {}).get("source", "")
+                orig = data.get("originalimage", {}).get("source", "")
+                results.append({
+                    "type": "wiki",
+                    "title": data.get("title", ""),
+                    "extract": data.get("extract", ""),
+                    "image_url": orig or thumb,
+                    "thumbnail": thumb,
+                    "source": "Wikipedia",
+                })
+    except:
+        pass
+    # Also search
+    try:
+        session = await get_session()
+        url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={quote_plus(query)}&format=json&srlimit={limit}"
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for item in data.get("query", {}).get("search", []):
+                    title = item.get("title", "")
+                    snippet = re.sub(r'<[^>]+>', '', item.get("snippet", ""))
+                    results.append({
+                        "type": "wiki",
+                        "title": title,
+                        "extract": snippet,
+                        "source": "Wikipedia",
+                    })
+    except:
+        pass
+    return results
+
+# ── HUGGING FACE DATASETS ──
+
+async def search_huggingface(query, limit=5):
+    results = []
+    try:
+        session = await get_session()
+        url = f"https://huggingface.co/api/datasets?search={quote_plus(query)}&limit={limit}&sort=downloads&direction=-1"
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                for item in data[:limit]:
+                    results.append({
+                        "type": "dataset",
+                        "title": item.get("id", "Unknown"),
+                        "downloads": item.get("downloads", 0),
+                        "likes": item.get("likes", 0),
+                        "tags": ", ".join(item.get("tags", [])[:5]),
+                        "source": "Hugging Face",
+                    })
+    except Exception as e:
+        logger.error(f"HuggingFace error: {e}")
+    return results
+
+
+# ══════════════════════════════════════════
+#  𝗥𝗘𝗦𝗨𝗟𝗧 𝗙𝗢𝗥𝗠𝗔𝗧𝗧𝗘𝗥 & 𝗦𝗘𝗡𝗗𝗘𝗥
+# ══════════════════════════════════════════
+
+async def send_results_to_telegram(bot, chat_id, results, query, category, page=1):
+    """Send each result as NATIVE Telegram media - NO LINKS!"""
+
+    if not results:
+        no_result = (
+            f"\n{TOP}\n"
+            f"{SIDE}  {S['cross']} {bold_sans('NO RESULTS FOUND')} {S['cross']}\n"
+            f"{BOT}\n\n"
+            f"{S['mag']} {bold_sans('Query')}: {italic_sans(query)}\n"
+            f"{S['folder']} {bold_sans('Category')}: {italic_sans(category)}\n\n"
+            f"{LINE2}\n\n"
+            f"{S['arrow']} {bold_italic('Tips')}:\n"
+            f"  {S['dot']} {italic_sans('Try different keywords')}\n"
+            f"  {S['dot']} {italic_sans('Use English for better results')}\n"
+            f"  {S['dot']} {italic_sans('Try specific category')}\n\n"
+            f"{LINE3}"
+        )
+        await bot.send_message(chat_id=chat_id, text=no_result)
+        return
+
+    # Header message
+    cat_icons = {
+        "images": S['frame'], "wallpapers": S['wall'], "anime": S['anime'],
+        "movies": S['film'], "videos": S['vid'], "music": S['music'],
+        "books": S['books'], "code": S['code'], "datasets": S['robot'],
+        "nasa_img": S['rocket'], "nasa_vid": S['rocket'], "wiki": S['book'],
+        "all": S['globe'], "waifu": S['sakura'],
+    }
+    c_icon = cat_icons.get(category, S['mag'])
+
+    header = (
+        f"\n{TOP}\n"
+        f"{SIDE}  {c_icon} {bold_sans(category.upper().replace('_',' '))} {bold_sans('RESULTS')} {c_icon}\n"
+        f"{BOT}\n\n"
+        f"{S['mag']} {bold_sans('Query')}: {script_font(query)}\n"
+        f"{S['pack']} {bold_sans('Found')}: {bold_sans(str(len(results)))} {italic_sans('results')} {S['dot']} {italic_sans('Page')} {bold_sans(str(page))}\n\n"
+        f"{SPARK}\n"
+    )
+    await bot.send_message(chat_id=chat_id, text=header)
+
+    sent_count = 0
+    for i, r in enumerate(results):
+        try:
+            rtype = r.get("type", "")
+
+            # ═══ IMAGE ═══
+            if rtype == "image":
+                img_url = r.get("image_url", "") or r.get("thumbnail", "")
+                if not img_url:
+                    continue
+
+                caption = (
+                    f"{S['frame']} {bold_sans(r.get('title', 'Image')[:60])}\n"
+                    f"{DOT_LN}\n"
+                    f"{S['palette']} {italic_sans('By')}: {bold_sans(r.get('creator', 'Unknown')[:30])}\n"
+                )
+                if r.get("resolution"):
+                    caption += f"{S['tv']} {italic_sans('Resolution')}: {bold_sans(r.get('resolution', ''))}\n"
+                if r.get("views"):
+                    caption += f"{S['eye']} {italic_sans('Views')}: {bold_sans(str(r.get('views', 0)))}\n"
+                if r.get("license"):
+                    caption += f"{S['key']} {italic_sans('License')}: {mono_font(r.get('license', 'CC'))}\n"
+                caption += (
+                    f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
+                    f"{LINE2}"
+                )
+
+                success = await downloader.send_photo_telegram(bot, chat_id, img_url, caption)
+                if success:
+                    sent_count += 1
+
+            # ═══ VIDEO ═══
+            elif rtype == "video":
+                vid_url = r.get("video_url", "") or r.get("media_url", "")
+                if not vid_url:
+                    # Send thumbnail as photo with info
+                    thumb = r.get("thumbnail", "")
+                    if thumb:
+                        caption = (
+                            f"{S['vid']} {bold_sans(r.get('title', 'Video')[:60])}\n"
+                            f"{DOT_LN}\n"
+                            f"{S['palette']} {italic_sans('By')}: {bold_sans(r.get('creator', 'Unknown')[:30])}\n"
+                            f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
+                            f"{S['warn']} {italic_sans('Video too large for Telegram')}\n"
+                            f"{LINE2}"
                         )
-                        return
+                        await downloader.send_photo_telegram(bot, chat_id, thumb, caption)
+                        sent_count += 1
+                    continue
 
-                    # Write to a temp file
-                    suffix = os.path.splitext(url.split("?")[0])[-1] or ".bin"
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tf:
-                        tmp_path = tf.name
-                        downloaded = 0
-                        async for chunk in resp.content.iter_chunked(1024 * 256):
-                            downloaded += len(chunk)
-                            if downloaded > TELEGRAM_MAX_BYTES:
-                                raise Exception("File exceeds 50 MB during download")
-                            tf.write(chunk)
+                caption = (
+                    f"{S['film']} {bold_sans(r.get('title', 'Video')[:60])}\n"
+                    f"{DOT_LN}\n"
+                    f"{S['palette']} {italic_sans('By')}: {bold_sans(r.get('creator', 'Unknown')[:30])}\n"
+                    f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
+                    f"{S['recv']} {italic_sans('Downloads')}: {bold_sans(str(r.get('downloads', 0)))}\n"
+                    f"{LINE2}"
+                )
 
-            # Upload from temp file
-            with open(tmp_path, "rb") as f:
-                if r_type in ("image", "wallpaper", "artwork"):
-                    await context.bot.send_photo(chat_id=chat_id, photo=f, caption=caption)
-                elif r_type in ("audio", "music"):
-                    await context.bot.send_audio(chat_id=chat_id, audio=f, caption=caption)
-                elif r_type in ("video", "movies", "anime"):
-                    await context.bot.send_video(chat_id=chat_id, video=f, caption=caption)
+                thumb = r.get("thumbnail", "")
+                success = await downloader.send_video_telegram(bot, chat_id, vid_url, caption, thumb)
+                if success:
+                    sent_count += 1
                 else:
-                    await context.bot.send_document(chat_id=chat_id, document=f, caption=caption)
+                    # Fallback: send thumbnail with info
+                    if thumb:
+                        caption += f"\n{S['warn']} {italic_sans('Video too large, showing preview')}"
+                        await downloader.send_photo_telegram(bot, chat_id, thumb, caption)
+                        sent_count += 1
+
+            # ═══ AUDIO ═══
+            elif rtype == "audio":
+                audio_url = r.get("audio_url", "")
+                if not audio_url:
+                    continue
+
+                caption = (
+                    f"{S['music']} {bold_sans(r.get('title', 'Audio')[:60])}\n"
+                    f"{DOT_LN}\n"
+                    f"{S['mic']} {italic_sans('Artist')}: {bold_sans(r.get('creator', 'Unknown')[:30])}\n"
+                    f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
+                    f"{S['recv']} {italic_sans('Downloads')}: {bold_sans(str(r.get('downloads', 0)))}\n"
+                    f"{LINE2}"
+                )
+
+                title = r.get("title", "Audio")
+                success = await downloader.send_audio_telegram(bot, chat_id, audio_url, caption, title)
+                if success:
+                    sent_count += 1
+
+            # ═══ ANIME ═══
+            elif rtype == "anime":
+                img_url = r.get("image_url", "") or r.get("thumbnail", "")
+                if not img_url:
+                    continue
+
+                score = r.get("score", "N/A")
+                score_bar = ""
+                if score and score != "N/A":
+                    try:
+                        s = float(score)
+                        filled = int(s / 10 * 10)
+                        score_bar = "█" * filled + "░" * (10 - filled)
+                    except:
+                        score_bar = ""
+
+                caption = (
+                    f"{S['anime']} {bold_sans(r.get('title', 'Anime')[:50])}\n"
+                )
+                if r.get("title_jp"):
+                    caption += f"   {italic_sans(r.get('title_jp', '')[:40])}\n"
+                caption += f"{DOT_LN}\n"
+
+                if score_bar:
+                    caption += f"{S['star2']} {italic_sans('Score')}: {bold_sans(str(score))} [{score_bar}]\n"
+                else:
+                    caption += f"{S['star2']} {italic_sans('Score')}: {bold_sans(str(score))}\n"
+
+                caption += (
+                    f"{S['tv']} {italic_sans('Episodes')}: {bold_sans(str(r.get('episodes', '?')))}\n"
+                    f"{S['bolt']} {italic_sans('Status')}: {bold_sans(r.get('status', 'N/A'))}\n"
+                )
+                if r.get("genres"):
+                    caption += f"{S['puzzle']} {italic_sans('Genres')}: {mono_font(r.get('genres', ''))}\n"
+                if r.get("year"):
+                    caption += f"{S['globe']} {italic_sans('Year')}: {bold_sans(str(r.get('year', '')))}\n"
+                caption += f"{DOT_LN}\n"
+
+                synopsis = r.get("synopsis", "")
+                if synopsis:
+                    caption += f"{italic_sans(synopsis[:200])}\n"
+                caption += f"\n{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
+                caption += f"{LINE2}"
+
+                # Truncate caption
+                if len(caption) > 1024:
+                    caption = caption[:1020] + "..."
+
+                await downloader.send_photo_telegram(bot, chat_id, img_url, caption)
+                sent_count += 1
+
+            # ═══ BOOK ═══
+            elif rtype == "book":
+                caption = (
+                    f"{S['books']} {bold_sans(r.get('title', 'Book')[:60])}\n"
+                    f"{DOT_LN}\n"
+                    f"{S['palette']} {italic_sans('Author')}: {bold_sans(r.get('creator', 'Unknown')[:40])}\n"
+                    f"{S['recv']} {italic_sans('Downloads')}: {bold_sans(str(r.get('downloads', 0)))}\n"
+                )
+                if r.get("subjects"):
+                    caption += f"{S['puzzle']} {italic_sans('Subjects')}: {mono_font(r.get('subjects', '')[:60])}\n"
+                caption += (
+                    f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
+                    f"{LINE2}"
+                )
+
+                # Send cover image
+                cover = r.get("cover_url", "")
+                if cover:
+                    await downloader.send_photo_telegram(bot, chat_id, cover, caption)
+                    sent_count += 1
+
+                # Send ebook file
+                epub_url = r.get("epub_url", "")
+                txt_url = r.get("txt_url", "")
+                if epub_url:
+                    title = r.get("title", "book")
+                    file_caption = f"{S['books']} {bold_sans(title[:50])}\n{S['pack']} {italic_sans('EPUB Format')}"
+                    safe_title = re.sub(r'[^\w\s-]', '', title)[:50]
+                    await downloader.send_document_telegram(bot, chat_id, epub_url, file_caption, f"{safe_title}.epub")
+                    sent_count += 1
+                elif txt_url:
+                    title = r.get("title", "book")
+                    file_caption = f"{S['books']} {bold_sans(title[:50])}\n{S['doc']} {italic_sans('Text Format')}"
+                    safe_title = re.sub(r'[^\w\s-]', '', title)[:50]
+                    await downloader.send_document_telegram(bot, chat_id, txt_url, file_caption, f"{safe_title}.txt")
+                    sent_count += 1
+
+            # ═══ CODE (GitHub) ═══
+            elif rtype == "code":
+                avatar = r.get("avatar_url", "")
+                caption = (
+                    f"{S['code']} {bold_sans(r.get('title', 'Repo')[:50])}\n"
+                    f"{DOT_LN}\n"
+                    f"{S['star2']} {italic_sans('Stars')}: {bold_sans(str(r.get('stars', 0)))} "
+                    f"{S['dot']} {italic_sans('Forks')}: {bold_sans(str(r.get('forks', 0)))}\n"
+                    f"{S['bolt']} {italic_sans('Language')}: {bold_sans(str(r.get('language', 'N/A')))}\n"
+                    f"{DOT_LN}\n"
+                    f"{italic_sans(r.get('desc', '')[:150])}\n"
+                    f"\n{S['globe']} {italic_sans('Source')}: {bold_sans('GitHub')}\n"
+                    f"{LINE2}"
+                )
+                if avatar:
+                    await downloader.send_photo_telegram(bot, chat_id, avatar, caption)
+                else:
+                    await bot.send_message(chat_id=chat_id, text=caption)
+                sent_count += 1
+
+            # ═══ WIKI ═══
+            elif rtype == "wiki":
+                img = r.get("image_url", "") or r.get("thumbnail", "")
+                caption = (
+                    f"{S['book']} {bold_sans(r.get('title', 'Article')[:50])}\n"
+                    f"{DOT_LN}\n"
+                    f"{italic_sans(r.get('extract', '')[:400])}\n"
+                    f"\n{S['globe']} {italic_sans('Source')}: {bold_sans('Wikipedia')}\n"
+                    f"{LINE2}"
+                )
+                if len(caption) > 1024:
+                    caption = caption[:1020] + "..."
+                if img:
+                    await downloader.send_photo_telegram(bot, chat_id, img, caption)
+                else:
+                    await bot.send_message(chat_id=chat_id, text=caption)
+                sent_count += 1
+
+            # ═══ DATASET ═══
+            elif rtype == "dataset":
+                text = (
+                    f"{S['robot']} {bold_sans(r.get('title', 'Dataset')[:50])}\n"
+                    f"{DOT_LN}\n"
+                    f"{S['recv']} {italic_sans('Downloads')}: {bold_sans(str(r.get('downloads', 0)))}\n"
+                    f"{S['heart']} {italic_sans('Likes')}: {bold_sans(str(r.get('likes', 0)))}\n"
+                    f"{S['puzzle']} {italic_sans('Tags')}: {mono_font(r.get('tags', '')[:60])}\n"
+                    f"\n{S['globe']} {italic_sans('Source')}: {bold_sans('Hugging Face')}\n"
+                    f"{LINE2}"
+                )
+                await bot.send_message(chat_id=chat_id, text=text)
+                sent_count += 1
+
+            await asyncio.sleep(0.5)  # Rate limiting
 
         except Exception as e:
-            logger.error(f"Temp download/upload failed: {e}")
-            size_info = ""
-            if "50 MB" in str(e):
-                size_info = (
-                    f"\n\n{SYM['cross']} {stylish_text('File exceeds Telegram 50 MB limit.', 'bold')}\n"
-                    f"{SYM['link']} Use the link to download directly:\n{url}"
-                )
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=(
-                    f"{SYM['cross']} {stylish_text('Failed to send file.', 'bold')}\n"
-                    f"{SYM['dot']} {str(e)[:200]}{size_info}\n\n"
-                    f"{SYM['link']} {stylish_text('Direct link:', 'italic')} {url}"
-                ),
-                disable_web_page_preview=True
-            )
-        finally:
-            # ✅ ALWAYS delete temp file immediately — zero permanent storage
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                    logger.info(f"Temp file deleted: {tmp_path}")
-                except Exception as del_err:
-                    logger.error(f"Failed to delete temp file {tmp_path}: {del_err}")
+            logger.error(f"Error sending result {i}: {e}")
+            continue
 
-    # ── Main flow ──────────────────────────────────────────
-    success = await _try_direct()
-    if not success:
-        await _try_temp_download()
-
-
-def format_search_results(results, query, category, page=1):
-    """Format search results into stylish message"""
-    if not results:
-        text = f"""
-{SYM['line5']}
-{SYM['line7']}  {SYM['magnify']} {stylish_text('SEARCH RESULTS', 'bold')} {SYM['magnify']}
-{SYM['line6']}
-
-{SYM['cross']} {stylish_text('No results found', 'bold')} for:
-   "{stylish_text(query, 'italic')}"
-
-{SYM['arrow']} {stylish_text('Tips', 'bold')}:
-   {SYM['dot']} Try different keywords
-   {SYM['dot']} Use English keywords for better results
-   {SYM['dot']} Try a specific category search
-
-{SYM['line3']}
-"""
-        return text, []
-    
-    cat_icon = DATABASES.get(category, {}).get("icon", SYM['magnify']) if category != "all" else SYM['globe']
-    cat_name = DATABASES.get(category, {}).get("title", "All Databases") if category != "all" else "𝗨𝗻𝗶𝘃𝗲𝗿𝘀𝗮𝗹 𝗦𝗲𝗮𝗿𝗰𝗵"
-    
-    text = f"""
-{SYM['line5']}
-{SYM['line7']}  {cat_icon} {cat_name} {cat_icon}
-{SYM['line6']}
-
-{SYM['magnify']} {stylish_text('Query', 'bold')}: "{stylish_text(query, 'italic')}"
-{SYM['package']} {stylish_text('Results', 'bold')}: {len(results)} found | Page {page}
-
-{SYM['line4']}
-"""
-    
-    buttons = []
-    
-    for i, r in enumerate(results[:8], 1):
-        title = (r.get("title", "Unknown") or "Unknown")[:50]
-        desc = (r.get("desc", "") or "")[:120]
-        source = r.get("source", "Unknown")
-        url = r.get("url", "")
-        r_type = r.get("type", "media")
-        
-        type_icons = {
-            "movies": "🎬", "video": "📹", "image": "🖼️", "wallpaper": "🌄",
-            "anime": "🌸", "audio": "🎵", "book": "📚", "code": "💻",
-            "dataset": "🤖", "artwork": "🎨", "article": "📖", "3d": "🧊",
-        }
-        icon = type_icons.get(r_type, "📄")
-        
-        text += f"""
-{SYM['diamond']} {icon} {stylish_text(title, 'bold')}
-   {SYM['dot']} {desc}
-   {SYM['dot']} {SYM['globe']} {source}
-"""
-        
-        result_idx = i - 1   # 0-based index into results list
-        row = []
-        if url:
-            btn_label = f"{icon} {title[:22]}…"
-            row.append(InlineKeyboardButton(btn_label, url=url))
-        
-        # "Send to Chat" button — uses download URL if available, else page URL
-        send_url = r.get("download") or url
-        if send_url:
-            row.append(InlineKeyboardButton(
-                f"📨 Send",
-                callback_data=f"send_{result_idx}"
-            ))
-        
-        if row:
-            buttons.append(row)
-        
-        if r.get("download") and r.get("download") != url:
-            buttons.append([InlineKeyboardButton(f"📥 Download: {title[:20]}…", url=r["download"])])
-    
-    text += f"""
-{SYM['line4']}
-
-{SYM['star']} {stylish_text('Click buttons below to open links', 'italic')}
-
-{SYM['line3']}
-"""
-    
-    # Navigation buttons
-    nav_row = []
+    # Footer with navigation
+    nav_buttons = []
     if page > 1:
-        nav_row.append(InlineKeyboardButton(
-            f"⬅️ Page {page-1}", 
-            callback_data=f"page_{category}_{quote_plus(query)}_{page-1}"
+        nav_buttons.append(InlineKeyboardButton(
+            f"⬅️ {bold_sans('Page')} {page-1}",
+            callback_data=f"p|{category}|{query[:40]}|{page-1}"
         ))
-    nav_row.append(InlineKeyboardButton(
-        f"➡️ Page {page+1}", 
-        callback_data=f"page_{category}_{quote_plus(query)}_{page+1}"
+    nav_buttons.append(InlineKeyboardButton(
+        f"➡️ {bold_sans('Page')} {page+1}",
+        callback_data=f"p|{category}|{query[:40]}|{page+1}"
     ))
-    buttons.append(nav_row)
-    
-    buttons.append([
-        InlineKeyboardButton(f"{SYM['folder']} Categories", callback_data="categories"),
-        InlineKeyboardButton(f"{SYM['arrow2']} Home", callback_data="back_to_start"),
-    ])
-    
-    return text, buttons
 
-
-async def perform_search(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str, category: str = "all", page: int = 1):
-    """Perform search and show results"""
-    user_id = update.effective_user.id
-    
-    # Send "searching" message
-    if update.callback_query:
-        msg = update.callback_query.message
-    else:
-        msg = update.message
-    
-    searching_text = f"""
-{SYM['line4']}
-{SYM['magnify']} {stylish_text('Searching...', 'bold')}
-{SYM['dot']} Query: "{stylish_text(query, 'italic')}"
-{SYM['dot']} Category: {category.replace('_', ' ').title()}
-{SYM['dot']} Scanning 100+ databases...
-{SYM['lightning']} Please wait...
-{SYM['line4']}
-"""
-    
-    if update.callback_query:
-        try:
-            await update.callback_query.edit_message_text(searching_text)
-        except:
-            search_msg = await msg.reply_text(searching_text)
-    else:
-        search_msg = await msg.reply_text(searching_text)
-    
-    # Perform the search
-    results = await search_engine.universal_search(query, category, limit=8, page=page)
-    
-    # Format results
-    text, buttons = format_search_results(results, query, category, page)
-    
-    # Store search state
-    USER_STATES[user_id] = {
-        "last_query": query,
-        "last_category": category,
-        "last_page": page,
-        "last_results": results,   # ← cached for "Send to Chat" callbacks
-    }
-    
-    keyboard = InlineKeyboardMarkup(buttons) if buttons else None
-    
-    # Truncate if too long
-    if len(text) > 4096:
-        text = text[:4090] + "\n..."
-    
-    try:
-        if update.callback_query:
-            await update.callback_query.edit_message_text(
-                text, reply_markup=keyboard, disable_web_page_preview=True
-            )
-        else:
-            await search_msg.edit_text(
-                text, reply_markup=keyboard, disable_web_page_preview=True
-            )
-    except Exception as e:
-        logger.error(f"Error sending results: {e}")
-        await msg.reply_text(
-            text, reply_markup=keyboard, disable_web_page_preview=True
-        )
-
-
-# ─── Category-specific search commands ───
-
-async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /search command"""
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await update.message.reply_text(
-            f"{SYM['magnify']} {stylish_text('Universal Search', 'bold')}\n\n"
-            f"{SYM['arrow']} Usage: /search <your query>\n"
-            f"{SYM['dot']} Example: /search nature 4K\n\n"
-            f"Or just type your query directly!"
-        )
-        return
-    await perform_search(update, context, query, "all")
-
-async def movie_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "movies")
-        return
-    await perform_search(update, context, query, "movies")
-
-async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "images")
-        return
-    await perform_search(update, context, query, "images")
-
-async def anime_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "anime")
-        return
-    await perform_search(update, context, query, "anime")
-
-async def music_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "music")
-        return
-    await perform_search(update, context, query, "music")
-
-async def book_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "books")
-        return
-    await perform_search(update, context, query, "books")
-
-async def video_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "videos")
-        return
-    await perform_search(update, context, query, "videos")
-
-async def wallpaper_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "wallpapers")
-        return
-    await perform_search(update, context, query, "wallpapers")
-
-async def code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "code")
-        return
-    await perform_search(update, context, query, "code")
-
-async def dataset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "datasets")
-        return
-    await perform_search(update, context, query, "datasets")
-
-async def three_d_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await show_category_sources(update, context, "three_d")
-        return
-    await perform_search(update, context, query, "three_d")
-
-async def wiki_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await update.message.reply_text(f"{SYM['arrow']} Usage: /wiki <query>")
-        return
-    await perform_search(update, context, query, "science")
-
-async def nasa_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args) if context.args else ""
-    if not query:
-        await update.message.reply_text(f"{SYM['arrow']} Usage: /nasa <query>")
-        return
-    
-    results = await search_engine.search_nasa(query, "image", 5)
-    results += await search_engine.search_nasa(query, "video", 5)
-    text, buttons = format_search_results(results, query, "images")
-    keyboard = InlineKeyboardMarkup(buttons) if buttons else None
-    if len(text) > 4096:
-        text = text[:4090] + "\n..."
-    await update.message.reply_text(text, reply_markup=keyboard, disable_web_page_preview=True)
-
-async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Random media discovery"""
-    random_queries = [
-        "nature", "space", "ocean", "mountain", "sunset", "city",
-        "abstract", "minimal", "vintage", "cyberpunk", "fantasy",
-        "naruto", "one piece", "dragon", "music", "piano",
-        "python", "machine learning", "robot", "galaxy", "flowers",
-        "architecture", "wildlife", "aurora", "waterfall", "desert"
-    ]
-    random_cats = list(DATABASES.keys())
-    
-    query = random.choice(random_queries)
-    category = random.choice(random_cats)
-    
-    await update.message.reply_text(
-        f"{SYM['dice']} {stylish_text('Random Discovery!', 'bold')}\n"
-        f"{SYM['dot']} Query: {query}\n"
-        f"{SYM['dot']} Category: {DATABASES[category]['icon']} {category}\n"
-        f"{SYM['lightning']} Searching..."
+    footer_text = (
+        f"\n{LINE2}\n"
+        f"{S['check']} {bold_sans('Sent')}: {bold_sans(str(sent_count))} / {len(results)} {italic_sans('results')}\n"
+        f"{S['spark']} {italic_sans('Page')} {bold_sans(str(page))} {S['dot']} {italic_sans('Category')}: {bold_sans(category)}\n"
+        f"{LINE3}\n"
     )
-    
-    await perform_search(update, context, query, category)
+
+    keyboard = [
+        nav_buttons,
+        [
+            InlineKeyboardButton(f"{S['folder']} Categories", callback_data="menu_cat"),
+            InlineKeyboardButton(f"{S['globe']} Home", callback_data="menu_home"),
+        ]
+    ]
+
+    await bot.send_message(
+        chat_id=chat_id,
+        text=footer_text,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
-async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show bot statistics"""
-    total_sources = sum(len(cat["sources"]) for cat in DATABASES.values())
-    total_categories = len(DATABASES)
-    
-    # Estimate total items
-    estimates = {
-        "movies": "10M+", "videos": "1M+", "images": "900M+",
-        "wallpapers": "2M+", "anime": "200K+", "music": "40M+",
-        "books": "100M+", "games": "2M+", "code": "300M+",
-        "datasets": "25M+", "three_d": "3M+", "maps": "Entire Planet",
-        "science": "500M+", "news": "1T+", "design": "1M+"
-    }
-    
-    text = f"""
-{SYM['line5']}
-{SYM['line7']}  {SYM['trophy']} {stylish_text('BOT STATISTICS', 'bold')} {SYM['trophy']}
-{SYM['line6']}
+# ══════════════════════════════════════════
+#  𝗕𝗢𝗧 𝗖𝗢𝗠𝗠𝗔𝗡𝗗𝗦
+# ══════════════════════════════════════════
 
-{SYM['diamond']} {stylish_text('Database Coverage', 'bold')}:
+async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    name = user.first_name or "User"
 
-   {SYM['globe']} Categories: {total_categories}
-   {SYM['link']} Sources: {total_sources}+ databases
-   {SYM['package']} Total Media: Billions of files
+    text = (
+        f"\n{TOP}\n"
+        f"{SIDE}  {S['crown']} {neg_squared('ULTIMATE MEDIA BOT')} {S['crown']}\n"
+        f"{BOT}\n\n"
+        f"{S['spark']} {script_font('Welcome')}, {bold_sans(name)}! {S['spark']}\n\n"
+        f"{LINE2}\n\n"
+        f"{S['robot']} {fraktur_font('What I Can Do')}:\n\n"
+        f"  {S['frame']} {bold_sans('Images')} {S['dot']} {italic_sans('Openverse 800M+, NASA, Wikimedia')}\n"
+        f"  {S['wall']} {bold_sans('Wallpapers')} {S['dot']} {italic_sans('Wallhaven HD/4K')}\n"
+        f"  {S['anime']} {bold_sans('Anime')} {S['dot']} {italic_sans('MAL, Kitsu, Waifu pics')}\n"
+        f"  {S['film']} {bold_sans('Movies')} {S['dot']} {italic_sans('Internet Archive Free')}\n"
+        f"  {S['vid']} {bold_sans('Videos')} {S['dot']} {italic_sans('Archive.org, NASA')}\n"
+        f"  {S['music']} {bold_sans('Music')} {S['dot']} {italic_sans('Archive Audio, Free Music')}\n"
+        f"  {S['books']} {bold_sans('Books')} {S['dot']} {italic_sans('Gutenberg 70K+ ebooks')}\n"
+        f"  {S['code']} {bold_sans('Code')} {S['dot']} {italic_sans('GitHub Repos')}\n"
+        f"  {S['robot']} {bold_sans('Datasets')} {S['dot']} {italic_sans('Hugging Face AI')}\n"
+        f"  {S['rocket']} {bold_sans('NASA')} {S['dot']} {italic_sans('Space photos & videos')}\n"
+        f"  {S['book']} {bold_sans('Wikipedia')} {S['dot']} {italic_sans('Knowledge articles')}\n"
+        f"  {S['sakura']} {bold_sans('Waifu')} {S['dot']} {italic_sans('Anime character images')}\n\n"
+        f"{LINE2}\n\n"
+        f"{S['bolt']} {bold_italic('Everything shows INSIDE Telegram!')}\n"
+        f"{S['bolt']} {bold_italic('Photos, Videos, Audio - All Native!')}\n"
+        f"{S['bolt']} {bold_italic('NO external links needed!')}\n\n"
+        f"{S['arrow']} {bold_sans('Just type anything to search!')}\n\n"
+        f"{LINE3}\n"
+    )
 
-{SYM['line4']}
+    kb = [
+        [
+            InlineKeyboardButton(f"{S['mag']}  {bold_sans('Search All')}", callback_data="cat|all"),
+        ],
+        [
+            InlineKeyboardButton(f"{S['frame']} Images", callback_data="cat|images"),
+            InlineKeyboardButton(f"{S['wall']} Walls", callback_data="cat|wallpapers"),
+            InlineKeyboardButton(f"{S['anime']} Anime", callback_data="cat|anime"),
+        ],
+        [
+            InlineKeyboardButton(f"{S['film']} Movies", callback_data="cat|movies"),
+            InlineKeyboardButton(f"{S['vid']} Videos", callback_data="cat|videos"),
+            InlineKeyboardButton(f"{S['music']} Music", callback_data="cat|music"),
+        ],
+        [
+            InlineKeyboardButton(f"{S['books']} Books", callback_data="cat|books"),
+            InlineKeyboardButton(f"{S['code']} Code", callback_data="cat|code"),
+            InlineKeyboardButton(f"{S['robot']} AI Data", callback_data="cat|datasets"),
+        ],
+        [
+            InlineKeyboardButton(f"{S['rocket']} NASA", callback_data="cat|nasa_img"),
+            InlineKeyboardButton(f"{S['book']} Wiki", callback_data="cat|wiki"),
+            InlineKeyboardButton(f"{S['sakura']} Waifu", callback_data="cat|waifu"),
+        ],
+        [
+            InlineKeyboardButton(f"{S['dice']}  {bold_sans('Random')}", callback_data="random"),
+            InlineKeyboardButton(f"❓ {bold_sans('Help')}", callback_data="help"),
+        ],
+    ]
 
-{SYM['diamond']} {stylish_text('Per Category Estimates', 'bold')}:
+    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb))
 
-"""
-    for key, cat in DATABASES.items():
-        est = estimates.get(key, "N/A")
-        text += f"   {cat['icon']} {cat['title']}: {est}\n"
-    
-    text += f"""
-{SYM['line4']}
 
-{SYM['diamond']} {stylish_text('Supported APIs', 'bold')}:
+async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = (
+        f"\n{TOP}\n"
+        f"{SIDE}  {S['book']} {bold_sans('COMMANDS & HELP')} {S['book']}\n"
+        f"{BOT}\n\n"
+        f"{S['arrow']} {bold_sans('Search Commands')}:\n\n"
+        f"  {S['tri']} /search {italic_sans('query')} {S['dot']} All databases\n"
+        f"  {S['tri']} /image {italic_sans('query')} {S['dot']} Photos & images\n"
+        f"  {S['tri']} /wallpaper {italic_sans('query')} {S['dot']} HD wallpapers\n"
+        f"  {S['tri']} /anime {italic_sans('query')} {S['dot']} Anime search\n"
+        f"  {S['tri']} /waifu {italic_sans('category')} {S['dot']} Anime images\n"
+        f"  {S['tri']} /movie {italic_sans('query')} {S['dot']} Free movies\n"
+        f"  {S['tri']} /video {italic_sans('query')} {S['dot']} Free videos\n"
+        f"  {S['tri']} /music {italic_sans('query')} {S['dot']} Free music\n"
+        f"  {S['tri']} /book {italic_sans('query')} {S['dot']} Free ebooks\n"
+        f"  {S['tri']} /code {italic_sans('query')} {S['dot']} GitHub repos\n"
+        f"  {S['tri']} /dataset {italic_sans('query')} {S['dot']} AI datasets\n"
+        f"  {S['tri']} /nasa {italic_sans('query')} {S['dot']} NASA media\n"
+        f"  {S['tri']} /wiki {italic_sans('query')} {S['dot']} Wikipedia\n"
+        f"  {S['tri']} /random {S['dot']} Random discovery\n\n"
+        f"{LINE2}\n\n"
+        f"{S['spark']} {bold_italic('PRO TIP')}: Just type anything!\n"
+        f"   {italic_sans('Bot auto-searches in your last category')}\n\n"
+        f"{S['check']} {bold_sans('Waifu Categories')}:\n"
+        f"   {mono_font('waifu neko shinobu megumin')}\n"
+        f"   {mono_font('hug pat smile wave dance')}\n"
+        f"   {mono_font('kiss blush happy wink cry')}\n\n"
+        f"{LINE3}\n"
+    )
 
-   {SYM['check']} Internet Archive API
-   {SYM['check']} Openverse API (800M+ images)
-   {SYM['check']} Jikan/MAL API (anime)
-   {SYM['check']} Kitsu API (anime)
-   {SYM['check']} Gutenberg API (books)
-   {SYM['check']} Open Library API
-   {SYM['check']} Google Books API
-   {SYM['check']} GitHub API
-   {SYM['check']} NASA API
-   {SYM['check']} Wikipedia API
-   {SYM['check']} Wallhaven API
-   {SYM['check']} Met Museum API
-   {SYM['check']} Hugging Face API
-   {SYM['check']} And many more...
+    kb = [[InlineKeyboardButton(f"{S['arrow2']} Back", callback_data="menu_home")]]
 
-{SYM['line4']}
-
-{SYM['crown']} {stylish_text('All Free & Open Source!', 'bold_italic')}
-{SYM['infinity']} {stylish_text('No limits, no payments', 'italic')}
-
-{SYM['line3']}
-"""
-    
-    keyboard = [[InlineKeyboardButton(f"{SYM['arrow2']} Back", callback_data="back_to_start")]]
-    
     if update.callback_query:
-        await update.callback_query.edit_message_text(
-            text, reply_markup=InlineKeyboardMarkup(keyboard), disable_web_page_preview=True
-        )
+        await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
     else:
-        await update.message.reply_text(
-            text, reply_markup=InlineKeyboardMarkup(keyboard), disable_web_page_preview=True
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb))
+
+
+# ─── Category-specific commands ───
+
+async def _do_search(update, ctx, query, category):
+    if not query:
+        USER_DATA[update.effective_user.id] = {"cat": category}
+        text = (
+            f"\n{LINE2}\n"
+            f"{S['mag']} {bold_sans(category.upper())} {bold_sans('SEARCH')}\n\n"
+            f"{S['arrow']} {italic_sans('Type your search query:')}\n"
+            f"{S['dot']} {italic_sans('I will search and show results')}\n"
+            f"{S['dot']} {bold_italic('directly in Telegram!')}\n"
+            f"{LINE2}\n"
         )
+        await update.message.reply_text(text)
+        return
+    
+    await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
+    
+    loading = (
+        f"\n{S['bolt']} {bold_sans('Searching')}...\n"
+        f"{S['mag']} {italic_sans(query)}\n"
+        f"{S['folder']} {italic_sans(category)}\n"
+        f"{SPARK}\n"
+    )
+    msg = await update.message.reply_text(loading)
+    
+    results = await _fetch_results(query, category)
+    await msg.delete()
+    await send_results_to_telegram(ctx.bot, update.effective_chat.id, results, query, category)
 
 
-# ─── Callback Query Handler ───
+async def _fetch_results(query, category, page=1):
+    """Fetch results from APIs based on category"""
+    if category == "images":
+        r1 = await search_openverse_images(query, page, 5)
+        r2 = await search_wikimedia_images(query, 3)
+        return r1 + r2
+    elif category == "wallpapers":
+        return await search_wallhaven(query, page, 8)
+    elif category == "anime":
+        r1 = await search_anime_jikan(query, page, 5)
+        r2 = await search_anime_kitsu(query, 3)
+        return r1 + r2
+    elif category == "movies" or category == "videos":
+        return await search_archive_video(query, 5, page)
+    elif category == "music":
+        return await search_archive_audio(query, 5, page)
+    elif category == "books":
+        return await search_gutenberg(query, 5, page)
+    elif category == "code":
+        return await search_github_repos(query, 5, page)
+    elif category == "datasets":
+        return await search_huggingface(query, 5)
+    elif category == "nasa_img":
+        return await search_nasa(query, "image", 5)
+    elif category == "nasa_vid":
+        return await search_nasa(query, "video", 5)
+    elif category == "wiki":
+        return await search_wikipedia(query, 3)
+    elif category == "waifu":
+        urls = await get_waifu_many(query or "waifu", 5)
+        return [{"type": "image", "title": f"Waifu {query}", "image_url": u,
+                 "creator": "Waifu.pics", "source": "Waifu.pics", "license": "API"} for u in urls]
+    elif category == "all":
+        all_r = []
+        tasks = [
+            search_openverse_images(query, 1, 3),
+            search_wallhaven(query, 1, 2),
+            search_anime_jikan(query, 1, 2),
+            search_archive_video(query, 2, 1),
+            search_archive_audio(query, 2, 1),
+            search_gutenberg(query, 2, 1),
+            search_nasa(query, "image", 2),
+        ]
+        gathered = await asyncio.gather(*tasks, return_exceptions=True)
+        for r in gathered:
+            if isinstance(r, list):
+                all_r.extend(r)
+        return all_r
+    return []
 
-async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle all callback queries from inline buttons"""
+
+async def cmd_search(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "all")
+
+async def cmd_image(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "images")
+
+async def cmd_wallpaper(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "wallpapers")
+
+async def cmd_anime(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "anime")
+
+async def cmd_movie(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "movies")
+
+async def cmd_video(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "videos")
+
+async def cmd_music(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "music")
+
+async def cmd_book(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "books")
+
+async def cmd_code(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "code")
+
+async def cmd_dataset(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "datasets")
+
+async def cmd_nasa(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "nasa_img")
+
+async def cmd_wiki(update, ctx):
+    q = " ".join(ctx.args) if ctx.args else ""
+    await _do_search(update, ctx, q, "wiki")
+
+async def cmd_waifu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    cat = ctx.args[0] if ctx.args else "waifu"
+    
+    valid = ["waifu", "neko", "shinobu", "megumin", "bully", "cuddle",
+             "cry", "hug", "awoo", "kiss", "lick", "pat", "smug",
+             "bonk", "yeet", "blush", "smile", "wave", "highfive",
+             "handhold", "nom", "bite", "glomp", "slap", "kill",
+             "kick", "happy", "wink", "poke", "dance", "cringe"]
+
+    if cat.lower() not in valid:
+        text = (
+            f"\n{S['sakura']} {bold_sans('WAIFU CATEGORIES')}\n"
+            f"{DOT_LN}\n\n"
+        )
+        for i in range(0, len(valid), 5):
+            row = valid[i:i+5]
+            text += "  " + "  ".join([f"{S['cherry']} {mono_font(c)}" for c in row]) + "\n"
+        text += f"\n{S['arrow']} {italic_sans('Usage')}: /waifu {mono_font('category')}\n{LINE2}"
+        await update.message.reply_text(text)
+        return
+
+    await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
+    urls = await get_waifu_many(cat.lower(), 5)
+
+    if not urls:
+        await update.message.reply_text(f"{S['cross']} {bold_sans('No images found')}")
+        return
+
+    header = (
+        f"\n{S['sakura']} {bold_sans('WAIFU')} {S['dot']} {circled(cat.upper())}\n"
+        f"{SPARK}\n"
+    )
+    await update.message.reply_text(header)
+
+    for i, url in enumerate(urls):
+        caption = (
+            f"{S['cherry']} {bold_sans(f'Waifu {cat.title()}')} #{i+1}\n"
+            f"{S['key']} {italic_sans('Category')}: {mono_font(cat)}\n"
+            f"{S['globe']} {italic_sans('Source')}: {bold_sans('waifu.pics')}\n"
+            f"{LINE2}"
+        )
+        await downloader.send_photo_telegram(ctx.bot, update.effective_chat.id, url, caption)
+        await asyncio.sleep(0.3)
+
+    # More button
+    kb = [[InlineKeyboardButton(f"{S['sakura']} More {cat.title()}", callback_data=f"waifu|{cat}")]]
+    await ctx.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"{S['check']} {bold_sans('5 images sent!')} {S['point']} {italic_sans('Want more?')}",
+        reply_markup=InlineKeyboardMarkup(kb)
+    )
+
+
+async def cmd_random(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    queries = ["nature", "space", "ocean", "sunset", "city", "mountain",
+               "abstract", "cyberpunk", "naruto", "galaxy", "flowers",
+               "aurora", "waterfall", "forest", "lightning", "robot"]
+    cats = ["images", "wallpapers", "anime", "nasa_img", "waifu"]
+
+    q = random.choice(queries)
+    c = random.choice(cats)
+
+    text = (
+        f"\n{S['dice']} {bold_sans('RANDOM DISCOVERY')}\n"
+        f"{S['mag']} {italic_sans(q)} {S['dot']} {italic_sans(c)}\n"
+        f"{SPARK}\n"
+    )
+    await update.message.reply_text(text)
+    await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
+
+    if c == "waifu":
+        urls = await get_waifu_many("waifu", 3)
+        results = [{"type": "image", "title": "Random Waifu", "image_url": u,
+                    "creator": "Waifu.pics", "source": "Waifu.pics", "license": "API"} for u in urls]
+    else:
+        results = await _fetch_results(q, c)
+
+    await send_results_to_telegram(ctx.bot, update.effective_chat.id, results, q, c)
+
+
+# ── Callback Handler ──
+
+async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     data = query.data
-    user_id = update.effective_user.id
-    
-    if data == "back_to_start":
-        # Recreate start message
-        user = update.effective_user
-        name = user.first_name or "User"
-        welcome = f"""
-{SYM['line5']}
-{SYM['line7']}  {SYM['crown']} {stylish_text('ULTIMATE MEDIA BOT', 'bold')} {SYM['crown']}
-{SYM['line6']}
+    uid = update.effective_user.id
+    chat_id = update.effective_chat.id
 
-{SYM['spark']} Welcome back, {stylish_text(name, 'bold')}! {SYM['spark']}
+    if data == "menu_home":
+        await query.message.delete()
+        # Fake update for start
+        update.message = query.message
+        await cmd_start(update, ctx)
 
-{SYM['arrow']} Choose a category or search anything!
-{SYM['dot']} Just type your query to search
-
-{SYM['line3']}
-"""
-        keyboard = [
+    elif data == "menu_cat":
+        text = (
+            f"\n{TOP}\n"
+            f"{SIDE}  {S['folder']} {bold_sans('CATEGORIES')} {S['folder']}\n"
+            f"{BOT}\n\n"
+            f"{S['arrow']} {italic_sans('Choose a category:')}\n\n"
+            f"{LINE2}\n"
+        )
+        kb = [
             [
-                InlineKeyboardButton(f"{SYM['magnify']} Search All", callback_data="cat_all"),
-                InlineKeyboardButton(f"{SYM['folder']} Categories", callback_data="categories"),
+                InlineKeyboardButton(f"{S['frame']} Images", callback_data="cat|images"),
+                InlineKeyboardButton(f"{S['wall']} Walls", callback_data="cat|wallpapers"),
+                InlineKeyboardButton(f"{S['anime']} Anime", callback_data="cat|anime"),
             ],
             [
-                InlineKeyboardButton(f"🎬 Movies", callback_data="cat_movies"),
-                InlineKeyboardButton(f"🖼️ Images", callback_data="cat_images"),
-                InlineKeyboardButton(f"🌸 Anime", callback_data="cat_anime"),
+                InlineKeyboardButton(f"{S['film']} Movies", callback_data="cat|movies"),
+                InlineKeyboardButton(f"{S['vid']} Videos", callback_data="cat|videos"),
+                InlineKeyboardButton(f"{S['music']} Music", callback_data="cat|music"),
             ],
             [
-                InlineKeyboardButton(f"🎵 Music", callback_data="cat_music"),
-                InlineKeyboardButton(f"📚 Books", callback_data="cat_books"),
-                InlineKeyboardButton(f"🎮 Games", callback_data="cat_games"),
+                InlineKeyboardButton(f"{S['books']} Books", callback_data="cat|books"),
+                InlineKeyboardButton(f"{S['code']} Code", callback_data="cat|code"),
+                InlineKeyboardButton(f"{S['robot']} Datasets", callback_data="cat|datasets"),
             ],
             [
-                InlineKeyboardButton(f"🌄 Wallpapers", callback_data="cat_wallpapers"),
-                InlineKeyboardButton(f"💻 Code", callback_data="cat_code"),
-                InlineKeyboardButton(f"🤖 Datasets", callback_data="cat_datasets"),
+                InlineKeyboardButton(f"{S['rocket']} NASA", callback_data="cat|nasa_img"),
+                InlineKeyboardButton(f"{S['book']} Wiki", callback_data="cat|wiki"),
+                InlineKeyboardButton(f"{S['sakura']} Waifu", callback_data="cat|waifu"),
             ],
-            [
-                InlineKeyboardButton(f"🧊 3D", callback_data="cat_three_d"),
-                InlineKeyboardButton(f"📹 Videos", callback_data="cat_videos"),
-                InlineKeyboardButton(f"🎨 Design", callback_data="cat_design"),
-            ],
+            [InlineKeyboardButton(f"{S['arrow2']} Home", callback_data="menu_home")],
         ]
-        await query.edit_message_text(
-            welcome, reply_markup=InlineKeyboardMarkup(keyboard), disable_web_page_preview=True
-        )
-    
-    elif data == "categories":
-        await categories_command(update, context)
-    
-    elif data == "all_databases":
-        await all_databases_command(update, context)
-    
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
+
     elif data == "help":
-        await help_command(update, context)
-    
-    elif data == "stats":
-        await stats_command(update, context)
-    
-    elif data.startswith("cat_"):
-        category = data[4:]  # Remove "cat_"
-        if category == "all":
-            # Prompt for search query
-            USER_STATES[user_id] = {"awaiting_search": True, "search_category": "all"}
-            text = f"""
-{SYM['line4']}
-{SYM['magnify']} {stylish_text('Universal Search', 'bold')}
+        await cmd_help(update, ctx)
 
-{SYM['arrow']} {stylish_text('Type your search query:', 'italic')}
-{SYM['dot']} I'll search across ALL 100+ databases
+    elif data == "random":
+        await query.message.delete()
+        update.message = query.message
+        await cmd_random(update, ctx)
 
-{SYM['star']} Examples:
-   {SYM['dot']} "space galaxy 4K"
-   {SYM['dot']} "naruto"
-   {SYM['dot']} "python machine learning"
-   {SYM['dot']} "beethoven symphony"
-{SYM['line4']}
-"""
-            keyboard = [[InlineKeyboardButton(f"{SYM['arrow2']} Back", callback_data="back_to_start")]]
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-        elif category in DATABASES:
-            await show_category_sources(update, context, category)
-    
-    elif data.startswith("search_in_"):
-        category = data[10:]
-        USER_STATES[user_id] = {"awaiting_search": True, "search_category": category}
-        cat = DATABASES.get(category, {})
-        text = f"""
-{SYM['line4']}
-{cat.get('icon', SYM['magnify'])} {stylish_text(f"Search in {cat.get('title', category)}", 'bold')}
+    elif data.startswith("cat|"):
+        cat = data.split("|")[1]
+        USER_DATA[uid] = {"cat": cat}
 
-{SYM['arrow']} {stylish_text('Type your search query:', 'italic')}
-
-{SYM['star']} I'll search across {len(cat.get('sources', []))} databases
-{SYM['line4']}
-"""
-        keyboard = [[InlineKeyboardButton(f"{SYM['arrow2']} Back", callback_data=f"cat_{category}")]]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-    
-    elif data.startswith("page_"):
-        # Handle pagination: page_category_query_pagenum
-        parts = data.split("_", 3)
-        if len(parts) >= 4:
-            category = parts[1]
-            from urllib.parse import unquote_plus
-            search_query = unquote_plus(parts[2])
-            page_num = int(parts[3])
-            await perform_search(update, context, search_query, category, page_num)
-
-    elif data.startswith("send_"):
-        # ── Send media file directly to this chat ──────────
-        await query.answer("⏳ Sending file…", show_alert=False)
-        try:
-            idx = int(data[5:])
-        except ValueError:
-            await query.message.reply_text(f"{SYM['cross']} Invalid send request.")
-            return
-
-        state   = USER_STATES.get(user_id, {})
-        results = state.get("last_results", [])
-
-        if not results or idx >= len(results):
-            await query.message.reply_text(
-                f"{SYM['cross']} {stylish_text('Result expired!', 'bold')}\n"
-                f"{SYM['dot']} Please search again and retry."
+        if cat == "waifu":
+            text = (
+                f"\n{S['sakura']} {bold_sans('WAIFU IMAGES')}\n"
+                f"{DOT_LN}\n"
+                f"{S['arrow']} {italic_sans('Choose a category:')}\n\n"
             )
-            return
+            valid = ["waifu", "neko", "shinobu", "megumin", "hug", "pat",
+                     "smile", "wave", "dance", "kiss", "blush", "happy",
+                     "wink", "cry", "cuddle", "awoo"]
+            kb = []
+            for i in range(0, len(valid), 3):
+                row = [InlineKeyboardButton(f"{S['cherry']} {v.title()}", callback_data=f"waifu|{v}")
+                       for v in valid[i:i+3]]
+                kb.append(row)
+            kb.append([InlineKeyboardButton(f"{S['arrow2']} Back", callback_data="menu_cat")])
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
+        else:
+            text = (
+                f"\n{LINE2}\n"
+                f"{S['mag']} {bold_sans(cat.upper())} {bold_sans('SEARCH')}\n\n"
+                f"{S['arrow']} {italic_sans('Type your search query now!')}\n"
+                f"{S['dot']} {bold_italic('Results will appear as native Telegram media')}\n"
+                f"{LINE2}\n"
+            )
+            kb = [[InlineKeyboardButton(f"{S['arrow2']} Back", callback_data="menu_cat")]]
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
 
-        result  = results[idx]
-        chat_id = query.message.chat_id
+    elif data.startswith("waifu|"):
+        wcat = data.split("|")[1]
+        await query.message.delete()
+        await ctx.bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_PHOTO)
 
-        # Notify user we're working on it
-        status_msg = await query.message.reply_text(
-            f"{SYM['lightning']} {stylish_text('Fetching & sending file…', 'bold')}\n"
-            f"{SYM['dot']} {stylish_text('Please wait', 'italic')} — this may take a moment."
+        urls = await get_waifu_many(wcat, 5)
+        for i, url in enumerate(urls):
+            caption = (
+                f"{S['cherry']} {bold_sans(f'Waifu {wcat.title()}')} #{i+1}\n"
+                f"{S['key']} {mono_font(wcat)} {S['dot']} {italic_sans('waifu.pics')}\n"
+                f"{LINE2}"
+            )
+            await downloader.send_photo_telegram(ctx.bot, chat_id, url, caption)
+            await asyncio.sleep(0.3)
+
+        kb = [
+            [InlineKeyboardButton(f"{S['sakura']} More {wcat.title()}", callback_data=f"waifu|{wcat}")],
+            [InlineKeyboardButton(f"{S['arrow2']} Categories", callback_data="cat|waifu")],
+        ]
+        await ctx.bot.send_message(
+            chat_id=chat_id,
+            text=f"{S['check']} {bold_sans('5 sent!')} {italic_sans('More?')}",
+            reply_markup=InlineKeyboardMarkup(kb)
         )
 
-        try:
-            await send_file_to_chat(context, chat_id, result)
-        except Exception as e:
-            logger.error(f"send_file_to_chat error: {e}")
-            await query.message.reply_text(
-                f"{SYM['cross']} {stylish_text('Error sending file.', 'bold')}\n"
-                f"{SYM['dot']} {str(e)[:300]}"
-            )
-        finally:
-            # Clean up status message
-            try:
-                await status_msg.delete()
-            except Exception:
-                pass
+    elif data.startswith("p|"):
+        # Pagination: p|category|query|page
+        parts = data.split("|")
+        if len(parts) >= 4:
+            cat = parts[1]
+            q = parts[2]
+            pg = int(parts[3])
+            await query.message.delete()
+            await ctx.bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_PHOTO)
+
+            loading = f"{S['bolt']} {bold_sans('Loading page')} {pg}..."
+            await ctx.bot.send_message(chat_id=chat_id, text=loading)
+
+            results = await _fetch_results(q, cat, pg)
+            await send_results_to_telegram(ctx.bot, chat_id, results, q, cat, pg)
 
 
-# ─── Text Message Handler (auto-search) ───
+# ── Text message handler (auto search) ──
 
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle regular text messages as search queries"""
+async def text_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
-    
     text = update.message.text.strip()
     if text.startswith("/"):
         return
-    
-    user_id = update.effective_user.id
-    state = USER_STATES.get(user_id, {})
-    
-    category = state.get("search_category", "all")
-    
-    # Clear awaiting state
-    if "awaiting_search" in state:
-        del state["awaiting_search"]
-    
-    await perform_search(update, context, text, category)
+
+    uid = update.effective_user.id
+    cat = USER_DATA.get(uid, {}).get("cat", "all")
+
+    await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
+
+    loading = (
+        f"\n{S['bolt']} {bold_sans('Searching')}...\n"
+        f"{S['mag']} {script_font(text)}\n"
+        f"{S['folder']} {italic_sans(cat)}\n"
+        f"{SPARK}\n"
+    )
+    msg = await update.message.reply_text(loading)
+
+    results = await _fetch_results(text, cat)
+    await msg.delete()
+    await send_results_to_telegram(ctx.bot, update.effective_chat.id, results, text, cat)
 
 
-# ═══════════════════════════════════════════════════════════
-# 🌐 WEB SERVER FOR RENDER
-# ═══════════════════════════════════════════════════════════
+# ══════════════════════════════════════════
+#  🌐 WEB SERVER (Render)
+# ══════════════════════════════════════════
 
-async def health_handler(request):
-    """Health check endpoint for Render"""
-    total_sources = sum(len(cat["sources"]) for cat in DATABASES.values())
+async def health(request):
     return web.json_response({
         "status": "alive",
-        "bot": "Ultimate Media Bot",
-        "databases": total_sources,
-        "categories": len(DATABASES),
-        "timestamp": datetime.now().isoformat()
+        "bot": "Ultimate Media Bot v2",
+        "features": "Images, Videos, Audio, Anime - ALL inside Telegram",
+        "time": datetime.now().isoformat()
     })
 
-async def webhook_handler(request):
-    """Handle incoming webhook updates"""
+async def webhook(request):
     try:
         data = await request.json()
-        update = Update.de_json(data, request.app["bot_app"].bot)
-        await request.app["bot_app"].process_update(update)
+        update = Update.de_json(data, request.app["bot"].bot)
+        await request.app["bot"].process_update(update)
     except Exception as e:
         logger.error(f"Webhook error: {e}")
     return web.Response(status=200)
 
 
-# ═══════════════════════════════════════════════════════════
-# 🚀 MAIN APPLICATION
-# ═══════════════════════════════════════════════════════════
+# ══════════════════════════════════════════
+#  🚀 MAIN
+# ══════════════════════════════════════════
 
-async def post_init(application):
-    """Set bot commands after initialization"""
-    commands = [
-        BotCommand("start", "🏠 Start the bot"),
-        BotCommand("search", "🔍 Universal search"),
-        BotCommand("categories", "📁 Browse categories"),
-        BotCommand("movie", "🎬 Search movies"),
-        BotCommand("image", "🖼️ Search images"),
-        BotCommand("anime", "🌸 Search anime"),
-        BotCommand("music", "🎵 Search music"),
-        BotCommand("book", "📚 Search books"),
-        BotCommand("video", "📹 Search videos"),
-        BotCommand("wallpaper", "🌄 Search wallpapers"),
-        BotCommand("code", "💻 Search code repos"),
-        BotCommand("dataset", "🤖 Search AI datasets"),
-        BotCommand("three_d", "🧊 Search 3D models"),
-        BotCommand("wiki", "📖 Search Wikipedia"),
-        BotCommand("nasa", "🚀 Search NASA media"),
-        BotCommand("random", "🎲 Random discovery"),
-        BotCommand("databases", "📊 List all databases"),
-        BotCommand("stats", "📈 Bot statistics"),
-        BotCommand("help", "❓ Help & commands"),
+async def post_init(app):
+    cmds = [
+        BotCommand("start", "🏠 Home"),
+        BotCommand("search", "🔍 Search all"),
+        BotCommand("image", "🖼️ Images"),
+        BotCommand("wallpaper", "🌄 Wallpapers"),
+        BotCommand("anime", "🌸 Anime"),
+        BotCommand("waifu", "🌸 Waifu images"),
+        BotCommand("movie", "🎬 Movies"),
+        BotCommand("video", "📹 Videos"),
+        BotCommand("music", "🎵 Music"),
+        BotCommand("book", "📚 Books"),
+        BotCommand("code", "💻 GitHub"),
+        BotCommand("dataset", "🤖 AI Datasets"),
+        BotCommand("nasa", "🚀 NASA"),
+        BotCommand("wiki", "📖 Wikipedia"),
+        BotCommand("random", "🎲 Random"),
+        BotCommand("help", "❓ Help"),
     ]
-    await application.bot.set_my_commands(commands)
-    logger.info("Bot commands set successfully!")
+    await app.bot.set_my_commands(cmds)
+    logger.info(f"{S['check']} Bot commands set!")
 
 
 def main():
-    """Main function to run the bot"""
-    
-    # Build application
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
-    
-    # Register handlers
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("search", search_command))
-    app.add_handler(CommandHandler("categories", categories_command))
-    app.add_handler(CommandHandler("databases", all_databases_command))
-    app.add_handler(CommandHandler("movie", movie_command))
-    app.add_handler(CommandHandler("image", image_command))
-    app.add_handler(CommandHandler("anime", anime_command))
-    app.add_handler(CommandHandler("music", music_command))
-    app.add_handler(CommandHandler("book", book_command))
-    app.add_handler(CommandHandler("video", video_command))
-    app.add_handler(CommandHandler("wallpaper", wallpaper_command))
-    app.add_handler(CommandHandler("code", code_command))
-    app.add_handler(CommandHandler("dataset", dataset_command))
-    app.add_handler(CommandHandler("three_d", three_d_command))
-    app.add_handler(CommandHandler("wiki", wiki_command))
-    app.add_handler(CommandHandler("nasa", nasa_command))
-    app.add_handler(CommandHandler("random", random_command))
-    app.add_handler(CommandHandler("stats", stats_command))
+
+    # Commands
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("search", cmd_search))
+    app.add_handler(CommandHandler("image", cmd_image))
+    app.add_handler(CommandHandler("wallpaper", cmd_wallpaper))
+    app.add_handler(CommandHandler("anime", cmd_anime))
+    app.add_handler(CommandHandler("waifu", cmd_waifu))
+    app.add_handler(CommandHandler("movie", cmd_movie))
+    app.add_handler(CommandHandler("video", cmd_video))
+    app.add_handler(CommandHandler("music", cmd_music))
+    app.add_handler(CommandHandler("book", cmd_book))
+    app.add_handler(CommandHandler("code", cmd_code))
+    app.add_handler(CommandHandler("dataset", cmd_dataset))
+    app.add_handler(CommandHandler("nasa", cmd_nasa))
+    app.add_handler(CommandHandler("wiki", cmd_wiki))
+    app.add_handler(CommandHandler("random", cmd_random))
     app.add_handler(CallbackQueryHandler(callback_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
-    
+
     if WEBHOOK_URL:
-        # ─── WEBHOOK MODE (for Render) ───
-        logger.info(f"Starting in WEBHOOK mode on port {PORT}")
-        
-        # Create aiohttp web app
+        logger.info(f"🌐 WEBHOOK mode on port {PORT}")
         web_app = web.Application()
-        web_app["bot_app"] = app
-        
-        web_app.router.add_get("/", health_handler)
-        web_app.router.add_get("/health", health_handler)
-        web_app.router.add_post(f"/webhook/{BOT_TOKEN}", webhook_handler)
-        
-        async def on_startup(web_application):
+        web_app["bot"] = app
+
+        web_app.router.add_get("/", health)
+        web_app.router.add_get("/health", health)
+        web_app.router.add_post(f"/webhook/{BOT_TOKEN}", webhook)
+
+        async def on_startup(wa):
             await app.initialize()
-            await app.bot.set_webhook(
-                url=f"{WEBHOOK_URL}/webhook/{BOT_TOKEN}",
-                allowed_updates=["message", "callback_query"]
-            )
+            await app.bot.set_webhook(f"{WEBHOOK_URL}/webhook/{BOT_TOKEN}",
+                                      allowed_updates=["message", "callback_query"])
             await app.start()
-            logger.info(f"Webhook set: {WEBHOOK_URL}/webhook/{BOT_TOKEN}")
-        
-        async def on_shutdown(web_application):
-            await search_engine.close()
+            logger.info(f"{S['check']} Webhook: {WEBHOOK_URL}/webhook/***")
+
+        async def on_shutdown(wa):
+            await downloader.close()
             await app.stop()
             await app.shutdown()
-        
+
         web_app.on_startup.append(on_startup)
         web_app.on_shutdown.append(on_shutdown)
-        
         web.run_app(web_app, host="0.0.0.0", port=PORT)
-    
     else:
-        # ─── POLLING MODE (for local testing) ───
-        logger.info("Starting in POLLING mode")
+        logger.info("🖥️ POLLING mode")
         app.run_polling(allowed_updates=["message", "callback_query"])
 
 
 if __name__ == "__main__":
     main()
-    
