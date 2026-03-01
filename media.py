@@ -1,6 +1,6 @@
-# media.py - Ultimate Open Source Media Bot
-# EVERYTHING INSIDE TELEGRAM - NO EXTERNAL LINKS
-# Stylish Unicode Fonts + God Level Design
+# media.py - Ultimate Indian Media Bot
+# Indian Songs, Bollywood, Desi Content + World Open Databases
+# EVERYTHING INSIDE TELEGRAM - NO LINKS!
 
 import os
 import logging
@@ -8,27 +8,32 @@ import asyncio
 import aiohttp
 import random
 import re
-import io
+import json
 from datetime import datetime
 from urllib.parse import quote_plus
 from telegram import (
     Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    BotCommand, InputMediaPhoto, InputMediaVideo, InputMediaAudio
+    BotCommand
 )
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
     MessageHandler, filters, ContextTypes
 )
-from telegram.constants import ParseMode, ChatAction
+from telegram.constants import ChatAction
 from aiohttp import web
 
 # ══════════════════════════════════════════
-#  CONFIGURATION
+#  CONFIG
 # ══════════════════════════════════════════
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 PORT = int(os.environ.get("PORT", 10000))
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
+
+# Optional API Keys (free tier)
+LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY", "")
+SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -37,115 +42,106 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════
-#  𝗦𝗧𝗬𝗟𝗜𝗦𝗛 𝗙𝗢𝗡𝗧𝗦 & 𝗦𝗬𝗠𝗕𝗢𝗟𝗦
+#  𝗦𝗧𝗬𝗟𝗜𝗦𝗛 𝗙𝗢𝗡𝗧𝗦
 # ══════════════════════════════════════════
 
-def bold_sans(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    styled = '𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵'
-    return text.translate(str.maketrans(normal, styled))
+def bold_s(t):
+    n='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    s='𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵'
+    return t.translate(str.maketrans(n,s))
 
-def italic_sans(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-    styled = '𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻'
-    return text.translate(str.maketrans(normal, styled))
+def ital_s(t):
+    n='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    s='𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻'
+    return t.translate(str.maketrans(n,s))
 
-def bold_italic(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-    styled = '𝘼𝘽𝘾𝘿𝙀𝙁𝙂𝙃𝙄𝙅𝙆𝙇𝙈𝙉𝙊𝙋𝙌𝙍𝙎𝙏𝙐𝙑𝙒𝙓𝙔𝙕𝙖𝙗𝙘𝙙𝙚𝙛𝙜𝙝𝙞𝙟𝙠𝙡𝙢𝙣𝙤𝙥𝙦𝙧𝙨𝙩𝙪𝙫𝙬𝙭𝙮𝙯'
-    return text.translate(str.maketrans(normal, styled))
+def bital_s(t):
+    n='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    s='𝘼𝘽𝘾𝘿𝙀𝙁𝙂𝙃𝙄𝙅𝙆𝙇𝙈𝙉𝙊𝙋𝙌𝙍𝙎𝙏𝙐𝙑𝙒𝙓𝙔𝙕𝙖𝙗𝙘𝙙𝙚𝙛𝙜𝙝𝙞𝙟𝙠𝙡𝙢𝙣𝙤𝙥𝙦𝙧𝙨𝙩𝙪𝙫𝙬𝙭𝙮𝙯'
+    return t.translate(str.maketrans(n,s))
 
-def mono_font(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    styled = '𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿'
-    return text.translate(str.maketrans(normal, styled))
+def mono_s(t):
+    n='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    s='𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿'
+    return t.translate(str.maketrans(n,s))
 
-def script_font(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-    styled = '𝒜ℬ𝒞𝒟ℰℱ𝒢ℋℐ𝒥𝒦ℒℳ𝒩𝒪𝒫𝒬ℛ𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝒶𝒷𝒸𝒹ℯ𝒻ℊ𝒽𝒾𝒿𝓀𝓁𝓂𝓃ℴ𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏'
-    return text.translate(str.maketrans(normal, styled))
+def script_s(t):
+    n='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    s='𝒜ℬ𝒞𝒟ℰℱ𝒢ℋℐ𝒥𝒦ℒℳ𝒩𝒪𝒫𝒬ℛ𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝒶𝒷𝒸𝒹ℯ𝒻ℊ𝒽𝒾𝒿𝓀𝓁𝓂𝓃ℴ𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏'
+    return t.translate(str.maketrans(n,s))
 
-def double_font(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    styled = '𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡'
-    return text.translate(str.maketrans(normal, styled))
+def double_s(t):
+    n='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    s='𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡'
+    return t.translate(str.maketrans(n,s))
 
-def fraktur_font(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-    styled = '𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷'
-    return text.translate(str.maketrans(normal, styled))
+def neg_sq(t):
+    n='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    s='🅰🅱🅲🅳🅴🅵🅶🅷🅸🅹🅺🅻🅼🅽🅾🅿🆀🆁🆂🆃🆄🆅🆆🆇🆈🆉'
+    return t.upper().translate(str.maketrans(n,s))
 
-def circled(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-    styled = 'ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ'
-    return text.translate(str.maketrans(normal, styled))
+# ═══ Design Elements ═══
 
-def squared(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    styled = '🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉'
-    return text.upper().translate(str.maketrans(normal, styled))
-
-def neg_squared(text):
-    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    styled = '🅰🅱🅲🅳🅴🅵🅶🅷🅸🅹🅺🅻🅼🅽🅾🅿🆀🆁🆂🆃🆄🆅🆆🆇🆈🆉'
-    return text.upper().translate(str.maketrans(normal, styled))
-
-# ═══ Decorative Borders & Symbols ═══
-
-TOP    = "╔══════════════════════════╗"
-BOT    = "╚══════════════════════════╝"
-SIDE   = "║"
-LINE   = "━━━━━━━━━━━━━━━━━━━━━━━━━━"
-LINE2  = "◈━━━━━━━━━━━━━━━━━━━━━━◈"
-LINE3  = "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰"
-DOT_LN = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-SPARK  = "╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍"
+T = "╔══════════════════════════════╗"
+B = "╚══════════════════════════════╝"
+V = "║"
+L1 = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+L2 = "◈━━━━━━━━━━━━━━━━━━━━━━━━━◈"
+L3 = "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰"
+DL = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+SP = "╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍"
+FL = "❀━━━━━━━━━━━━━━━━━━━━━━━━❀"
+ML = "♪━━━━━━━━━━━━━━━━━━━━━━━━♪"
+IL = "🇮🇳━━━━━━━━━━━━━━━━━━━━━━🇮🇳"
 
 # Symbols
-S = {
-    "crown": "👑", "fire": "🔥", "star": "✦", "star2": "★",
-    "diamond": "◆", "diamond2": "◇", "spark": "✨", "bolt": "⚡",
-    "rocket": "🚀", "gem": "💎", "heart": "❤️", "check": "✅",
-    "cross": "❌", "warn": "⚠️", "info": "ℹ️", "mag": "🔍",
-    "globe": "🌍", "link": "🔗", "pin": "📌", "key": "🔑",
-    "film": "🎬", "cam": "📷", "vid": "📹", "tv": "📺",
-    "music": "🎵", "mic": "🎤", "head": "🎧", "note": "🎶",
-    "book": "📖", "books": "📚", "scroll": "📜", "doc": "📄",
-    "art": "🎨", "palette": "🖌️", "frame": "🖼️", "photo": "📸",
-    "anime": "🌸", "cherry": "🌸", "sakura": "🎌", "cat": "🐱",
-    "game": "🎮", "dice": "🎲", "puzzle": "🧩", "trophy": "🏆",
-    "code": "💻", "robot": "🤖", "brain": "🧠", "atom": "⚛️",
-    "cube": "🧊", "earth": "🌏", "map": "🗺️", "sun": "☀️",
-    "moon": "🌙", "comet": "☄️", "wave": "🌊", "mount": "🏔️",
-    "tree": "🌲", "flower": "🌺", "leaf": "🍃", "rain": "🌧️",
-    "wall": "🌄", "city": "🏙️", "night": "🌃", "bridge": "🌉",
-    "folder": "📁", "pack": "📦", "cd": "💿", "disk": "💾",
-    "send": "📤", "recv": "📥", "clip": "📎", "bell": "🔔",
-    "eye": "👁️", "point": "👉", "up": "👆", "clap": "👏",
-    "flex": "💪", "pray": "🙏", "cool": "😎", "think": "🤔",
-    "arrow": "➤", "arrow2": "➜", "arrow3": "⟫", "tri": "▸",
-    "dot": "•", "ring": "◉", "sq": "■", "sq2": "▪️",
-    "circle": "●", "circle2": "○", "inf": "♾️", "peace": "☮️",
-    "tick": "✓", "plus": "✚", "x": "✗", "fleur": "⚜️",
+E = {
+    "crown":"👑","fire":"🔥","star":"✦","star2":"★","star3":"⭐",
+    "diamond":"◆","diamond2":"◇","spark":"✨","bolt":"⚡",
+    "rocket":"🚀","gem":"💎","heart":"❤️","heart2":"💖",
+    "check":"✅","cross":"❌","warn":"⚠️","mag":"🔍",
+    "globe":"🌍","india":"🇮🇳","om":"🕉️","namaste":"🙏",
+    "diya":"🪔","sitar":"🪕","tabla":"🥁","veena":"🎸",
+    "film":"🎬","cam":"📷","vid":"📹","tv":"📺",
+    "music":"🎵","mic":"🎤","head":"🎧","note":"🎶",
+    "notes":"🎵","sing":"🎤","disk":"💿","vinyl":"📀",
+    "radio":"📻","speaker":"🔊","wave":"〰️","amp":"🔉",
+    "book":"📖","books":"📚","scroll":"📜",
+    "art":"🎨","frame":"🖼️","photo":"📸",
+    "anime":"🌸","cherry":"🌸","sakura":"🎌",
+    "game":"🎮","trophy":"🏆","code":"💻","robot":"🤖",
+    "cube":"🧊","rocket2":"🚀","moon":"🌙",
+    "wall":"🌄","city":"🏙️","night":"🌃",
+    "folder":"📁","pack":"📦","recv":"📥","send":"📤",
+    "key":"🔑","eye":"👁️","point":"👉","flex":"💪",
+    "cool":"😎","love":"🥰","dance":"💃","party":"🎉",
+    "arrow":"➤","arrow2":"➜","tri":"▸","dot":"•",
+    "ring":"◉","circle":"●","inf":"♾️",
+    "tick":"✓","plus":"✚","fleur":"⚜️",
+    "rose":"🌹","lotus":"🪷","peacock":"🦚",
+    "elephant":"🐘","tiger":"🐅","flag":"🏴",
+    "temple":"🛕","prayer":"📿","rangoli":"🎭",
+    "chai":"🍵","mango":"🥭","spice":"🌶️",
+    "rupee":"₹","medal":"🏅","century":"💯",
 }
 
 # ══════════════════════════════════════════
 #  𝗠𝗘𝗗𝗜𝗔 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗥
 # ══════════════════════════════════════════
 
-class MediaDownloader:
-    """Downloads media and sends DIRECTLY in Telegram"""
-
+class Downloader:
     def __init__(self):
         self.session = None
+        self.spotify_token = None
+        self.spotify_token_time = None
 
     async def get_session(self):
         if self.session is None or self.session.closed:
             timeout = aiohttp.ClientTimeout(total=30)
-            connector = aiohttp.TCPConnector(limit=10, force_close=True)
+            conn = aiohttp.TCPConnector(limit=15, force_close=True)
             self.session = aiohttp.ClientSession(
-                timeout=timeout, connector=connector,
-                headers={"User-Agent": "MediaBot/2.0"}
+                timeout=timeout, connector=conn,
+                headers={"User-Agent": "IndianMediaBot/2.0"}
             )
         return self.session
 
@@ -153,919 +149,1095 @@ class MediaDownloader:
         if self.session and not self.session.closed:
             await self.session.close()
 
-    async def download_bytes(self, url, max_size=45*1024*1024):
-        """Download file as bytes (max 45MB for Telegram limit)"""
+    async def download(self, url, max_mb=45):
         try:
-            session = await self.get_session()
-            async with session.get(url) as resp:
-                if resp.status != 200:
+            s = await self.get_session()
+            async with s.get(url) as r:
+                if r.status != 200:
                     return None
-                content_length = resp.headers.get('Content-Length')
-                if content_length and int(content_length) > max_size:
+                cl = r.headers.get('Content-Length')
+                if cl and int(cl) > max_mb*1024*1024:
                     return None
-                data = await resp.read()
-                if len(data) > max_size:
+                data = await r.read()
+                if len(data) > max_mb*1024*1024:
                     return None
                 return data
-        except Exception as e:
-            logger.error(f"Download error: {e}")
+        except Exception as ex:
+            logger.error(f"Download fail: {ex}")
             return None
 
-    async def send_photo_telegram(self, bot, chat_id, image_url, caption=""):
-        """Download image and send as Telegram photo"""
+    async def send_photo(self, bot, cid, url, cap=""):
         try:
-            data = await self.download_bytes(image_url, max_size=10*1024*1024)
-            if data:
-                await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=data,
-                    caption=caption[:1024],
-                    read_timeout=30,
-                    write_timeout=30
-                )
+            data = await self.download(url, 10)
+            if data and len(data) > 1000:
+                await bot.send_photo(chat_id=cid, photo=data, caption=cap[:1024])
                 return True
-            else:
-                # Try sending URL directly
-                await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=image_url,
-                    caption=caption[:1024],
-                    read_timeout=30,
-                    write_timeout=30
-                )
-                return True
-        except Exception as e:
-            logger.error(f"Send photo error: {e}")
+            await bot.send_photo(chat_id=cid, photo=url, caption=cap[:1024])
+            return True
+        except Exception as ex:
+            logger.error(f"Photo fail: {ex}")
             return False
 
-    async def send_video_telegram(self, bot, chat_id, video_url, caption="", thumb_url=None):
-        """Download video and send as Telegram video"""
+    async def send_video(self, bot, cid, url, cap="", thumb_url=None):
         try:
-            data = await self.download_bytes(video_url, max_size=45*1024*1024)
-            if data:
-                thumb_data = None
-                if thumb_url:
-                    thumb_data = await self.download_bytes(thumb_url, max_size=1*1024*1024)
-                await bot.send_video(
-                    chat_id=chat_id,
-                    video=data,
-                    caption=caption[:1024],
-                    thumbnail=thumb_data,
-                    read_timeout=60,
-                    write_timeout=60,
-                    supports_streaming=True
-                )
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Send video error: {e}")
+            data = await self.download(url, 45)
+            if not data:
+                return False
+            thumb = None
+            if thumb_url:
+                thumb = await self.download(thumb_url, 1)
+            await bot.send_video(chat_id=cid, video=data, caption=cap[:1024],
+                                thumbnail=thumb, supports_streaming=True,
+                                read_timeout=120, write_timeout=120)
+            return True
+        except Exception as ex:
+            logger.error(f"Video fail: {ex}")
             return False
 
-    async def send_audio_telegram(self, bot, chat_id, audio_url, caption="", title=""):
-        """Download audio and send as Telegram audio"""
+    async def send_audio(self, bot, cid, url, cap="", title="", performer="", thumb_url=None):
         try:
-            data = await self.download_bytes(audio_url, max_size=45*1024*1024)
-            if data:
-                await bot.send_audio(
-                    chat_id=chat_id,
-                    audio=data,
-                    caption=caption[:1024],
-                    title=title,
-                    read_timeout=60,
-                    write_timeout=60
-                )
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Send audio error: {e}")
+            data = await self.download(url, 45)
+            if not data:
+                return False
+            thumb = None
+            if thumb_url:
+                thumb = await self.download(thumb_url, 1)
+            await bot.send_audio(chat_id=cid, audio=data, caption=cap[:1024],
+                                title=title, performer=performer, thumbnail=thumb,
+                                read_timeout=120, write_timeout=120)
+            return True
+        except Exception as ex:
+            logger.error(f"Audio fail: {ex}")
             return False
 
-    async def send_document_telegram(self, bot, chat_id, doc_url, caption="", filename=""):
-        """Download file and send as Telegram document"""
+    async def send_doc(self, bot, cid, url, cap="", fname=""):
         try:
-            data = await self.download_bytes(doc_url, max_size=45*1024*1024)
-            if data:
-                await bot.send_document(
-                    chat_id=chat_id,
-                    document=data,
-                    caption=caption[:1024],
-                    filename=filename or "file",
-                    read_timeout=60,
-                    write_timeout=60
-                )
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Send document error: {e}")
+            data = await self.download(url, 45)
+            if not data:
+                return False
+            await bot.send_document(chat_id=cid, document=data,
+                                   caption=cap[:1024], filename=fname)
+            return True
+        except Exception as ex:
+            logger.error(f"Doc fail: {ex}")
             return False
 
+    async def get_spotify_token(self):
+        """Get Spotify API token"""
+        if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+            return None
+        if self.spotify_token and self.spotify_token_time:
+            if (datetime.now() - self.spotify_token_time).seconds < 3500:
+                return self.spotify_token
+        try:
+            s = await self.get_session()
+            import base64
+            creds = base64.b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode()
+            async with s.post("https://accounts.spotify.com/api/token",
+                            headers={"Authorization": f"Basic {creds}"},
+                            data={"grant_type": "client_credentials"}) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    self.spotify_token = data.get("access_token")
+                    self.spotify_token_time = datetime.now()
+                    return self.spotify_token
+        except:
+            pass
+        return None
 
-# Global instances
-downloader = MediaDownloader()
-USER_DATA = {}
+dl = Downloader()
+UD = {}  # User data
 
 # ══════════════════════════════════════════
-#  𝗔𝗣𝗜 𝗦𝗘𝗔𝗥𝗖𝗛 𝗘𝗡𝗚𝗜𝗡𝗘𝗦
+#  🇮🇳 𝗜𝗡𝗗𝗜𝗔𝗡 𝗠𝗨𝗦𝗜𝗖 𝗦𝗘𝗔𝗥𝗖𝗛 𝗘𝗡𝗚𝗜𝗡𝗘𝗦
 # ══════════════════════════════════════════
 
-async def get_session():
-    return await downloader.get_session()
+# ── 1. JioSaavn API (MAIN - Indian songs with actual audio!) ──
 
-# ── IMAGES: Openverse (800M+ CC images) ──
-
-async def search_openverse_images(query, page=1, limit=8):
+async def search_jiosaavn(query, limit=8):
+    """Search JioSaavn - India's #1 music platform"""
     results = []
     try:
-        session = await get_session()
-        url = f"https://api.openverse.org/v1/images/?q={quote_plus(query)}&page={page}&page_size={limit}"
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                for item in data.get("results", []):
-                    results.append({
-                        "type": "image",
-                        "title": item.get("title", "Untitled") or "Untitled",
-                        "creator": item.get("creator", "Unknown") or "Unknown",
-                        "license": item.get("license", "CC") or "CC",
-                        "image_url": item.get("url", ""),
-                        "thumbnail": item.get("thumbnail", "") or item.get("url", ""),
-                        "source": item.get("source", "Openverse"),
-                        "width": item.get("width", 0),
-                        "height": item.get("height", 0),
-                    })
-    except Exception as e:
-        logger.error(f"Openverse error: {e}")
-    return results
+        s = await dl.get_session()
+        # Using JioSaavn unofficial API
+        url = f"https://saavn.dev/api/search/songs?query={quote_plus(query)}&limit={limit}"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                songs = data.get("data", {}).get("results", [])
+                for song in songs:
+                    # Get best quality download URL
+                    download_urls = song.get("downloadUrl", [])
+                    audio_url = ""
+                    for durl in reversed(download_urls):  # highest quality first
+                        if durl.get("quality") in ["320kbps", "160kbps", "96kbps"]:
+                            audio_url = durl.get("url", "")
+                            break
+                    if not audio_url and download_urls:
+                        audio_url = download_urls[-1].get("url", "")
 
-# ── IMAGES: Wikimedia Commons ──
+                    # Get image
+                    images = song.get("image", [])
+                    img_url = ""
+                    for img in reversed(images):
+                        if img.get("quality") in ["500x500", "150x150"]:
+                            img_url = img.get("url", "")
+                            break
+                    if not img_url and images:
+                        img_url = images[-1].get("url", "")
 
-async def search_wikimedia_images(query, limit=5):
-    results = []
-    try:
-        session = await get_session()
-        url = (f"https://commons.wikimedia.org/w/api.php?"
-               f"action=query&generator=search&gsrnamespace=6&gsrsearch={quote_plus(query)}"
-               f"&gsrlimit={limit}&prop=imageinfo&iiprop=url|size|mime|extmetadata"
-               f"&format=json&iiurlwidth=800")
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                pages = data.get("query", {}).get("pages", {})
-                for pid, page_data in pages.items():
-                    ii = page_data.get("imageinfo", [{}])[0]
-                    mime = ii.get("mime", "")
-                    if "image" not in mime:
-                        continue
-                    thumb = ii.get("thumburl", ii.get("url", ""))
-                    full_url = ii.get("url", "")
-                    title = page_data.get("title", "").replace("File:", "")
-                    meta = ii.get("extmetadata", {})
-                    artist = meta.get("Artist", {}).get("value", "Unknown")
-                    artist = re.sub(r'<[^>]+>', '', str(artist))[:50]
-                    results.append({
-                        "type": "image",
-                        "title": title,
-                        "creator": artist,
-                        "license": meta.get("LicenseShortName", {}).get("value", "CC"),
-                        "image_url": full_url,
-                        "thumbnail": thumb,
-                        "source": "Wikimedia Commons",
-                        "width": ii.get("width", 0),
-                        "height": ii.get("height", 0),
-                    })
-    except Exception as e:
-        logger.error(f"Wikimedia error: {e}")
-    return results
-
-# ── IMAGES/VIDEOS: NASA ──
-
-async def search_nasa(query, media_type="image", limit=5):
-    results = []
-    try:
-        session = await get_session()
-        url = f"https://images-api.nasa.gov/search?q={quote_plus(query)}&media_type={media_type}&page_size={limit}"
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                items = data.get("collection", {}).get("items", [])[:limit]
-                for item in items:
-                    item_data = item.get("data", [{}])[0]
-                    links = item.get("links", [])
-                    thumb = links[0].get("href", "") if links else ""
-                    nasa_id = item_data.get("nasa_id", "")
-
-                    # Get actual media file
-                    media_url = ""
-                    if nasa_id:
-                        asset_url = f"https://images-api.nasa.gov/asset/{nasa_id}"
-                        try:
-                            async with session.get(asset_url) as aresp:
-                                if aresp.status == 200:
-                                    adata = await aresp.json()
-                                    collection_items = adata.get("collection", {}).get("items", [])
-                                    for ci in collection_items:
-                                        href = ci.get("href", "")
-                                        if media_type == "image" and any(href.lower().endswith(x) for x in ['.jpg', '.jpeg', '.png', '.webp']):
-                                            if "orig" in href or "large" in href:
-                                                media_url = href
-                                                break
-                                        elif media_type == "video" and any(href.lower().endswith(x) for x in ['.mp4', '.webm']):
-                                            if "orig" in href or "large" in href or "medium" in href:
-                                                media_url = href
-                                                break
-                                    if not media_url and collection_items:
-                                        for ci in collection_items:
-                                            href = ci.get("href", "")
-                                            if media_type == "image" and any(href.lower().endswith(x) for x in ['.jpg', '.jpeg', '.png']):
-                                                media_url = href
-                                                break
-                                            elif media_type == "video" and href.lower().endswith('.mp4'):
-                                                media_url = href
-                                                break
-                        except:
-                            pass
-
-                    if not media_url:
-                        media_url = thumb
+                    artists = song.get("artists", {}).get("primary", [])
+                    artist_names = ", ".join([a.get("name", "") for a in artists]) if artists else song.get("primaryArtists", "Unknown")
 
                     results.append({
-                        "type": media_type,
-                        "title": item_data.get("title", "NASA Media"),
-                        "desc": (item_data.get("description", "") or "")[:200],
-                        "media_url": media_url,
-                        "thumbnail": thumb,
-                        "source": "NASA",
-                        "date": item_data.get("date_created", "")[:10],
-                        "creator": item_data.get("photographer", "NASA"),
+                        "type": "indian_song",
+                        "title": song.get("name", "Unknown"),
+                        "artist": artist_names,
+                        "album": song.get("album", {}).get("name", ""),
+                        "year": song.get("year", ""),
+                        "duration": song.get("duration", 0),
+                        "language": song.get("language", "Hindi"),
+                        "play_count": song.get("playCount", ""),
+                        "audio_url": audio_url,
+                        "image_url": img_url,
+                        "has_lyrics": song.get("hasLyrics", False),
+                        "song_id": song.get("id", ""),
+                        "source": "JioSaavn",
+                        "label": song.get("label", ""),
+                        "explicit": song.get("explicitContent", False),
                     })
-    except Exception as e:
-        logger.error(f"NASA error: {e}")
+    except Exception as ex:
+        logger.error(f"JioSaavn error: {ex}")
     return results
 
-# ── WALLPAPERS: Wallhaven ──
 
-async def search_wallhaven(query, page=1, limit=8):
-    results = []
+async def get_jiosaavn_lyrics(song_id):
+    """Get lyrics from JioSaavn"""
     try:
-        session = await get_session()
-        url = f"https://wallhaven.cc/api/v1/search?q={quote_plus(query)}&page={page}&sorting=relevance&categories=111&purity=100"
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                for item in data.get("data", [])[:limit]:
-                    results.append({
-                        "type": "image",
-                        "title": f"Wallpaper {item.get('id', '')}",
-                        "image_url": item.get("path", ""),
-                        "thumbnail": item.get("thumbs", {}).get("small", ""),
-                        "source": "Wallhaven",
-                        "resolution": item.get("resolution", ""),
-                        "views": item.get("views", 0),
-                        "favorites": item.get("favorites", 0),
-                        "creator": "Wallhaven Community",
-                        "license": "Wallhaven",
-                    })
-    except Exception as e:
-        logger.error(f"Wallhaven error: {e}")
-    return results
-
-# ── ANIME: Jikan (MyAnimeList) ──
-
-async def search_anime_jikan(query, page=1, limit=8):
-    results = []
-    try:
-        session = await get_session()
-        url = f"https://api.jikan.moe/v4/anime?q={quote_plus(query)}&limit={limit}&page={page}&sfw=true"
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                for item in data.get("data", []):
-                    img = item.get("images", {}).get("jpg", {})
-                    trailer = item.get("trailer", {})
-                    results.append({
-                        "type": "anime",
-                        "title": item.get("title", "Unknown"),
-                        "title_jp": item.get("title_japanese", ""),
-                        "score": item.get("score", "N/A"),
-                        "episodes": item.get("episodes", "?"),
-                        "status": item.get("status", ""),
-                        "rating": item.get("rating", ""),
-                        "synopsis": (item.get("synopsis", "") or "")[:300],
-                        "image_url": img.get("large_image_url", img.get("image_url", "")),
-                        "thumbnail": img.get("small_image_url", img.get("image_url", "")),
-                        "trailer_url": trailer.get("url", ""),
-                        "trailer_embed": trailer.get("embed_url", ""),
-                        "genres": ", ".join([g.get("name", "") for g in item.get("genres", [])]),
-                        "year": item.get("year", ""),
-                        "source": "MyAnimeList",
-                        "mal_url": item.get("url", ""),
-                    })
-    except Exception as e:
-        logger.error(f"Jikan error: {e}")
-    return results
-
-# ── ANIME: Kitsu ──
-
-async def search_anime_kitsu(query, limit=5):
-    results = []
-    try:
-        session = await get_session()
-        url = f"https://kitsu.io/api/edge/anime?filter[text]={quote_plus(query)}&page[limit]={limit}"
-        headers = {"Accept": "application/vnd.api+json"}
-        async with session.get(url, headers=headers) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                for item in data.get("data", []):
-                    a = item.get("attributes", {})
-                    poster = a.get("posterImage", {}) or {}
-                    cover = a.get("coverImage", {}) or {}
-                    results.append({
-                        "type": "anime",
-                        "title": a.get("canonicalTitle", "Unknown"),
-                        "title_jp": a.get("titles", {}).get("ja_jp", ""),
-                        "score": a.get("averageRating", "N/A"),
-                        "episodes": a.get("episodeCount", "?"),
-                        "status": a.get("status", ""),
-                        "synopsis": (a.get("synopsis", "") or "")[:300],
-                        "image_url": poster.get("large", poster.get("medium", poster.get("original", ""))),
-                        "thumbnail": poster.get("small", poster.get("tiny", "")),
-                        "cover_url": cover.get("large", cover.get("original", "")),
-                        "source": "Kitsu",
-                    })
-    except Exception as e:
-        logger.error(f"Kitsu error: {e}")
-    return results
-
-# ── ANIME IMAGES: Waifu.pics ──
-
-async def get_waifu_image(category="waifu"):
-    try:
-        session = await get_session()
-        categories = ["waifu", "neko", "shinobu", "megumin", "bully", "cuddle",
-                      "cry", "hug", "awoo", "kiss", "lick", "pat", "smug",
-                      "bonk", "yeet", "blush", "smile", "wave", "highfive",
-                      "handhold", "nom", "bite", "glomp", "slap", "kill",
-                      "kick", "happy", "wink", "poke", "dance", "cringe"]
-        if category.lower() not in categories:
-            category = "waifu"
-        url = f"https://api.waifu.pics/sfw/{category.lower()}"
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                return data.get("url", "")
+        s = await dl.get_session()
+        url = f"https://saavn.dev/api/songs/{song_id}/lyrics"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                lyrics = data.get("data", {}).get("lyrics", "")
+                # Clean HTML tags
+                lyrics = re.sub(r'<[^>]+>', '\n', lyrics)
+                lyrics = re.sub(r'\n{3,}', '\n\n', lyrics)
+                return lyrics.strip()
     except:
         pass
     return ""
 
-async def get_waifu_many(category="waifu", count=5):
-    try:
-        session = await get_session()
-        url = f"https://api.waifu.pics/many/sfw/{category.lower()}"
-        async with session.post(url, json={}) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                return data.get("files", [])[:count]
-    except:
-        pass
-    return []
 
-# ── MUSIC: Internet Archive Audio ──
-
-async def search_archive_audio(query, limit=5, page=1):
+async def get_jiosaavn_album(query, limit=5):
+    """Search JioSaavn albums"""
     results = []
     try:
-        session = await get_session()
-        url = (f"https://archive.org/advancedsearch.php?"
-               f"q={quote_plus(query)}+mediatype:audio&output=json&rows={limit}&page={page}"
-               f"&fl[]=identifier,title,creator,description,date,downloads")
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                for doc in data.get("response", {}).get("docs", []):
-                    identifier = doc.get("identifier", "")
-                    # Get actual audio file
-                    audio_url = ""
-                    try:
-                        files_url = f"https://archive.org/metadata/{identifier}/files"
-                        async with session.get(files_url) as fresp:
-                            if fresp.status == 200:
-                                fdata = await fresp.json()
-                                for f in fdata.get("result", []):
-                                    name = f.get("name", "")
-                                    if any(name.lower().endswith(x) for x in ['.mp3', '.ogg', '.flac', '.wav']):
-                                        audio_url = f"https://archive.org/download/{identifier}/{quote_plus(name)}"
-                                        break
-                    except:
-                        pass
+        s = await dl.get_session()
+        url = f"https://saavn.dev/api/search/albums?query={quote_plus(query)}&limit={limit}"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                albums = data.get("data", {}).get("results", [])
+                for album in albums:
+                    images = album.get("image", [])
+                    img_url = images[-1].get("url", "") if images else ""
                     results.append({
-                        "type": "audio",
-                        "title": doc.get("title", "Unknown") if isinstance(doc.get("title"), str) else str(doc.get("title", "Unknown")),
-                        "creator": doc.get("creator", "Unknown") if isinstance(doc.get("creator"), str) else str(doc.get("creator", "Unknown")),
-                        "desc": (str(doc.get("description", "")) or "")[:200],
-                        "audio_url": audio_url,
-                        "page_url": f"https://archive.org/details/{identifier}",
-                        "downloads": doc.get("downloads", 0),
-                        "source": "Internet Archive",
+                        "type": "album",
+                        "title": album.get("name", "Unknown"),
+                        "artist": album.get("artist", "Unknown"),
+                        "year": album.get("year", ""),
+                        "language": album.get("language", ""),
+                        "song_count": album.get("songCount", 0),
+                        "album_id": album.get("id", ""),
+                        "image_url": img_url,
+                        "source": "JioSaavn",
                     })
-    except Exception as e:
-        logger.error(f"Archive audio error: {e}")
+    except Exception as ex:
+        logger.error(f"JioSaavn album error: {ex}")
     return results
 
-# ── MOVIES/VIDEOS: Internet Archive ──
 
-async def search_archive_video(query, limit=5, page=1):
+async def get_jiosaavn_album_songs(album_id):
+    """Get all songs from a JioSaavn album"""
     results = []
     try:
-        session = await get_session()
+        s = await dl.get_session()
+        url = f"https://saavn.dev/api/albums?id={album_id}"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                songs = data.get("data", {}).get("songs", [])
+                for song in songs:
+                    download_urls = song.get("downloadUrl", [])
+                    audio_url = ""
+                    for durl in reversed(download_urls):
+                        if durl.get("quality") in ["320kbps", "160kbps", "96kbps"]:
+                            audio_url = durl.get("url", "")
+                            break
+                    if not audio_url and download_urls:
+                        audio_url = download_urls[-1].get("url", "")
+                    images = song.get("image", [])
+                    img_url = images[-1].get("url", "") if images else ""
+                    artists = song.get("artists", {}).get("primary", [])
+                    artist_names = ", ".join([a.get("name", "") for a in artists]) if artists else "Unknown"
+                    results.append({
+                        "type": "indian_song",
+                        "title": song.get("name", "Unknown"),
+                        "artist": artist_names,
+                        "album": song.get("album", {}).get("name", ""),
+                        "duration": song.get("duration", 0),
+                        "audio_url": audio_url,
+                        "image_url": img_url,
+                        "song_id": song.get("id", ""),
+                        "source": "JioSaavn",
+                        "language": song.get("language", "Hindi"),
+                    })
+    except Exception as ex:
+        logger.error(f"JioSaavn album songs error: {ex}")
+    return results
+
+
+async def search_jiosaavn_playlists(query, limit=5):
+    """Search JioSaavn playlists"""
+    results = []
+    try:
+        s = await dl.get_session()
+        url = f"https://saavn.dev/api/search/playlists?query={quote_plus(query)}&limit={limit}"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                playlists = data.get("data", {}).get("results", [])
+                for pl in playlists:
+                    images = pl.get("image", [])
+                    img_url = images[-1].get("url", "") if images else ""
+                    results.append({
+                        "type": "playlist",
+                        "title": pl.get("name", "Unknown"),
+                        "song_count": pl.get("songCount", 0),
+                        "playlist_id": pl.get("id", ""),
+                        "image_url": img_url,
+                        "source": "JioSaavn",
+                        "language": pl.get("language", ""),
+                    })
+    except:
+        pass
+    return results
+
+
+async def search_jiosaavn_artists(query, limit=5):
+    """Search JioSaavn artists"""
+    results = []
+    try:
+        s = await dl.get_session()
+        url = f"https://saavn.dev/api/search/artists?query={quote_plus(query)}&limit={limit}"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                artists = data.get("data", {}).get("results", [])
+                for art in artists:
+                    images = art.get("image", [])
+                    img_url = images[-1].get("url", "") if images else ""
+                    results.append({
+                        "type": "artist_info",
+                        "title": art.get("name", "Unknown"),
+                        "artist_id": art.get("id", ""),
+                        "image_url": img_url,
+                        "role": art.get("role", ""),
+                        "source": "JioSaavn",
+                    })
+    except:
+        pass
+    return results
+
+
+# ── 2. Spotify Search (for info + 30s preview) ──
+
+async def search_spotify(query, limit=5):
+    results = []
+    token = await dl.get_spotify_token()
+    if not token:
+        return results
+    try:
+        s = await dl.get_session()
+        url = f"https://api.spotify.com/v1/search?q={quote_plus(query)}&type=track&market=IN&limit={limit}"
+        headers = {"Authorization": f"Bearer {token}"}
+        async with s.get(url, headers=headers) as r:
+            if r.status == 200:
+                data = await r.json()
+                for track in data.get("tracks", {}).get("items", []):
+                    artists = ", ".join([a["name"] for a in track.get("artists", [])])
+                    album = track.get("album", {})
+                    images = album.get("images", [])
+                    img = images[0]["url"] if images else ""
+                    results.append({
+                        "type": "spotify_track",
+                        "title": track.get("name", "Unknown"),
+                        "artist": artists,
+                        "album": album.get("name", ""),
+                        "duration": track.get("duration_ms", 0) // 1000,
+                        "preview_url": track.get("preview_url", ""),
+                        "image_url": img,
+                        "popularity": track.get("popularity", 0),
+                        "release_date": album.get("release_date", ""),
+                        "source": "Spotify",
+                        "explicit": track.get("explicit", False),
+                    })
+    except Exception as ex:
+        logger.error(f"Spotify error: {ex}")
+    return results
+
+
+# ── 3. Last.fm (song info, similar, tags) ──
+
+async def search_lastfm(query, limit=5):
+    results = []
+    if not LASTFM_API_KEY:
+        return results
+    try:
+        s = await dl.get_session()
+        url = (f"https://ws.audioscrobbler.com/2.0/?method=track.search"
+               f"&track={quote_plus(query)}&api_key={LASTFM_API_KEY}"
+               f"&format=json&limit={limit}")
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                tracks = data.get("results", {}).get("trackmatches", {}).get("track", [])
+                for t in tracks:
+                    images = t.get("image", [])
+                    img = ""
+                    for i in reversed(images):
+                        if i.get("#text"):
+                            img = i["#text"]
+                            break
+                    results.append({
+                        "type": "lastfm_track",
+                        "title": t.get("name", "Unknown"),
+                        "artist": t.get("artist", "Unknown"),
+                        "listeners": t.get("listeners", "0"),
+                        "image_url": img,
+                        "source": "Last.fm",
+                    })
+    except:
+        pass
+    return results
+
+
+# ── 4. Internet Archive Indian Audio ──
+
+async def search_archive_indian_audio(query, limit=5, page=1):
+    results = []
+    try:
+        s = await dl.get_session()
+        q = f"{query} (hindi OR bollywood OR indian OR punjabi OR tamil OR telugu)"
         url = (f"https://archive.org/advancedsearch.php?"
-               f"q={quote_plus(query)}+mediatype:movies&output=json&rows={limit}&page={page}"
+               f"q={quote_plus(q)}+mediatype:audio&output=json&rows={limit}&page={page}"
                f"&fl[]=identifier,title,creator,description,date,downloads")
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
                 for doc in data.get("response", {}).get("docs", []):
-                    identifier = doc.get("identifier", "")
-                    video_url = ""
-                    thumb_url = f"https://archive.org/services/img/{identifier}"
+                    ident = doc.get("identifier", "")
+                    audio_url = ""
                     try:
-                        files_url = f"https://archive.org/metadata/{identifier}/files"
-                        async with session.get(files_url) as fresp:
-                            if fresp.status == 200:
-                                fdata = await fresp.json()
-                                best_size = 0
-                                for f in fdata.get("result", []):
-                                    name = f.get("name", "")
-                                    size = int(f.get("size", 0) or 0)
-                                    if any(name.lower().endswith(x) for x in ['.mp4', '.ogv', '.webm']):
-                                        # prefer mp4, under 45MB
-                                        if name.lower().endswith('.mp4') and size < 45*1024*1024:
-                                            if size > best_size:
-                                                video_url = f"https://archive.org/download/{identifier}/{quote_plus(name)}"
-                                                best_size = size
-                                if not video_url:
-                                    for f in fdata.get("result", []):
-                                        name = f.get("name", "")
-                                        size = int(f.get("size", 0) or 0)
-                                        if name.lower().endswith('.mp4') and size < 45*1024*1024:
-                                            video_url = f"https://archive.org/download/{identifier}/{quote_plus(name)}"
+                        furl = f"https://archive.org/metadata/{ident}/files"
+                        async with s.get(furl) as fr:
+                            if fr.status == 200:
+                                fd = await fr.json()
+                                for f in fd.get("result", []):
+                                    nm = f.get("name", "")
+                                    sz = int(f.get("size", 0) or 0)
+                                    if any(nm.lower().endswith(x) for x in ['.mp3','.ogg','.flac','.wav']):
+                                        if sz < 45*1024*1024:
+                                            audio_url = f"https://archive.org/download/{ident}/{quote_plus(nm)}"
                                             break
                     except:
                         pass
+                    title = doc.get("title", "Unknown")
+                    if isinstance(title, list): title = title[0]
+                    creator = doc.get("creator", "Unknown")
+                    if isinstance(creator, list): creator = creator[0]
+                    results.append({
+                        "type": "audio",
+                        "title": str(title),
+                        "artist": str(creator),
+                        "desc": str(doc.get("description", ""))[:200],
+                        "audio_url": audio_url,
+                        "downloads": doc.get("downloads", 0),
+                        "source": "Internet Archive",
+                        "thumbnail": f"https://archive.org/services/img/{ident}",
+                    })
+    except Exception as ex:
+        logger.error(f"Archive Indian audio error: {ex}")
+    return results
+
+
+# ── 5. Archive.org Indian Movies/Videos ──
+
+async def search_archive_indian_video(query, limit=5, page=1):
+    results = []
+    try:
+        s = await dl.get_session()
+        q = f"{query} (hindi OR bollywood OR indian OR desi)"
+        url = (f"https://archive.org/advancedsearch.php?"
+               f"q={quote_plus(q)}+mediatype:movies&output=json&rows={limit}&page={page}"
+               f"&fl[]=identifier,title,creator,description,date,downloads")
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                for doc in data.get("response", {}).get("docs", []):
+                    ident = doc.get("identifier", "")
+                    video_url = ""
+                    thumb = f"https://archive.org/services/img/{ident}"
+                    try:
+                        furl = f"https://archive.org/metadata/{ident}/files"
+                        async with s.get(furl) as fr:
+                            if fr.status == 200:
+                                fd = await fr.json()
+                                for f in fd.get("result", []):
+                                    nm = f.get("name", "")
+                                    sz = int(f.get("size", 0) or 0)
+                                    if nm.lower().endswith('.mp4') and sz < 45*1024*1024:
+                                        video_url = f"https://archive.org/download/{ident}/{quote_plus(nm)}"
+                                        break
+                    except:
+                        pass
+                    title = doc.get("title", "Unknown")
+                    if isinstance(title, list): title = title[0]
+                    creator = doc.get("creator", "Unknown")
+                    if isinstance(creator, list): creator = creator[0]
                     results.append({
                         "type": "video",
-                        "title": doc.get("title", "Unknown") if isinstance(doc.get("title"), str) else str(doc.get("title", "Unknown")),
-                        "creator": doc.get("creator", "Unknown") if isinstance(doc.get("creator"), str) else str(doc.get("creator", "Unknown")),
-                        "desc": (str(doc.get("description", ""))[:200]) if doc.get("description") else "",
+                        "title": str(title),
+                        "creator": str(creator),
+                        "desc": str(doc.get("description", ""))[:200],
                         "video_url": video_url,
-                        "thumbnail": thumb_url,
-                        "page_url": f"https://archive.org/details/{identifier}",
+                        "thumbnail": thumb,
                         "downloads": doc.get("downloads", 0),
                         "source": "Internet Archive",
                     })
-    except Exception as e:
-        logger.error(f"Archive video error: {e}")
+    except Exception as ex:
+        logger.error(f"Archive Indian video error: {ex}")
     return results
 
-# ── BOOKS: Gutenberg ──
+
+# ── 6. Other APIs (Images, Anime, Books etc) ──
+
+async def search_openverse(query, page=1, limit=5):
+    results = []
+    try:
+        s = await dl.get_session()
+        url = f"https://api.openverse.org/v1/images/?q={quote_plus(query)}&page={page}&page_size={limit}"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                for item in data.get("results", []):
+                    results.append({
+                        "type":"image","title":item.get("title","Untitled") or "Untitled",
+                        "creator":item.get("creator","Unknown") or "Unknown",
+                        "image_url":item.get("url",""),"thumbnail":item.get("thumbnail",""),
+                        "source":"Openverse","license":item.get("license","CC"),
+                    })
+    except:pass
+    return results
+
+async def search_wallhaven(query, page=1, limit=5):
+    results = []
+    try:
+        s = await dl.get_session()
+        url = f"https://wallhaven.cc/api/v1/search?q={quote_plus(query)}&page={page}&sorting=relevance&purity=100"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                for item in data.get("data",[])[:limit]:
+                    results.append({
+                        "type":"image","title":f"Wall #{item.get('id','')}",
+                        "image_url":item.get("path",""),"thumbnail":item.get("thumbs",{}).get("small",""),
+                        "source":"Wallhaven","resolution":item.get("resolution",""),
+                        "creator":"Community","license":"Wallhaven",
+                    })
+    except:pass
+    return results
+
+async def search_anime(query, limit=5):
+    results = []
+    try:
+        s = await dl.get_session()
+        url = f"https://api.jikan.moe/v4/anime?q={quote_plus(query)}&limit={limit}&sfw=true"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                for item in data.get("data",[]):
+                    img = item.get("images",{}).get("jpg",{})
+                    results.append({
+                        "type":"anime","title":item.get("title","Unknown"),
+                        "title_jp":item.get("title_japanese",""),
+                        "score":item.get("score","N/A"),"episodes":item.get("episodes","?"),
+                        "status":item.get("status",""),"synopsis":(item.get("synopsis","") or "")[:300],
+                        "image_url":img.get("large_image_url",img.get("image_url","")),
+                        "genres":", ".join([g.get("name","") for g in item.get("genres",[])]),
+                        "year":item.get("year",""),"source":"MyAnimeList",
+                    })
+    except:pass
+    return results
 
 async def search_gutenberg(query, limit=5, page=1):
     results = []
     try:
-        session = await get_session()
+        s = await dl.get_session()
         url = f"https://gutendex.com/books/?search={quote_plus(query)}&page={page}"
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                for item in data.get("results", [])[:limit]:
-                    authors = ", ".join([a.get("name", "") for a in item.get("authors", [])])
-                    formats = item.get("formats", {})
-                    cover = formats.get("image/jpeg", "")
-                    txt_url = (formats.get("text/plain; charset=utf-8") or
-                              formats.get("text/plain; charset=us-ascii") or
-                              formats.get("text/plain", ""))
-                    epub_url = formats.get("application/epub+zip", "")
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                for item in data.get("results",[])[:limit]:
+                    authors = ", ".join([a.get("name","") for a in item.get("authors",[])])
+                    fmt = item.get("formats",{})
+                    cover = fmt.get("image/jpeg","")
+                    epub = fmt.get("application/epub+zip","")
+                    txt = fmt.get("text/plain; charset=utf-8") or fmt.get("text/plain","")
                     results.append({
-                        "type": "book",
-                        "title": item.get("title", "Unknown"),
-                        "creator": authors or "Unknown",
-                        "cover_url": cover,
-                        "txt_url": txt_url,
-                        "epub_url": epub_url,
-                        "downloads": item.get("download_count", 0),
-                        "book_id": item.get("id", ""),
-                        "source": "Project Gutenberg",
-                        "subjects": ", ".join(item.get("subjects", [])[:3]),
+                        "type":"book","title":item.get("title","Unknown"),"creator":authors,
+                        "cover_url":cover,"epub_url":epub,"txt_url":txt,
+                        "downloads":item.get("download_count",0),"source":"Gutenberg",
                     })
-    except Exception as e:
-        logger.error(f"Gutenberg error: {e}")
+    except:pass
     return results
 
-# ── CODE: GitHub ──
-
-async def search_github_repos(query, limit=5, page=1):
+async def search_github(query, limit=5):
     results = []
     try:
-        session = await get_session()
-        url = f"https://api.github.com/search/repositories?q={quote_plus(query)}&per_page={limit}&page={page}&sort=stars"
-        headers = {"Accept": "application/vnd.github.v3+json"}
-        async with session.get(url, headers=headers) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                for item in data.get("items", []):
-                    owner = item.get("owner", {})
+        s = await dl.get_session()
+        url = f"https://api.github.com/search/repositories?q={quote_plus(query)}&per_page={limit}&sort=stars"
+        async with s.get(url, headers={"Accept":"application/vnd.github.v3+json"}) as r:
+            if r.status == 200:
+                data = await r.json()
+                for item in data.get("items",[]):
                     results.append({
-                        "type": "code",
-                        "title": item.get("full_name", "Unknown"),
-                        "desc": (item.get("description", "") or "")[:200],
-                        "stars": item.get("stargazers_count", 0),
-                        "forks": item.get("forks_count", 0),
-                        "language": item.get("language", "N/A"),
-                        "avatar_url": owner.get("avatar_url", ""),
-                        "repo_url": item.get("html_url", ""),
-                        "source": "GitHub",
+                        "type":"code","title":item.get("full_name",""),
+                        "desc":(item.get("description","") or "")[:200],
+                        "stars":item.get("stargazers_count",0),"forks":item.get("forks_count",0),
+                        "language":item.get("language","N/A"),
+                        "avatar_url":item.get("owner",{}).get("avatar_url",""),
+                        "source":"GitHub",
                     })
-    except Exception as e:
-        logger.error(f"GitHub error: {e}")
+    except:pass
     return results
 
-# ── WIKIPEDIA ──
+async def search_nasa(query, limit=5):
+    results = []
+    try:
+        s = await dl.get_session()
+        url = f"https://images-api.nasa.gov/search?q={quote_plus(query)}&media_type=image&page_size={limit}"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
+                for item in data.get("collection",{}).get("items",[])[:limit]:
+                    d = item.get("data",[{}])[0]
+                    links = item.get("links",[])
+                    thumb = links[0].get("href","") if links else ""
+                    results.append({
+                        "type":"image","title":d.get("title","NASA"),
+                        "desc":(d.get("description","") or "")[:200],
+                        "image_url":thumb,"thumbnail":thumb,
+                        "source":"NASA","creator":"NASA",
+                    })
+    except:pass
+    return results
+
+async def get_waifu_many(cat="waifu", count=5):
+    try:
+        s = await dl.get_session()
+        url = f"https://api.waifu.pics/many/sfw/{cat.lower()}"
+        async with s.post(url, json={}) as r:
+            if r.status == 200:
+                data = await r.json()
+                return data.get("files",[])[:count]
+    except:pass
+    return []
 
 async def search_wikipedia(query, limit=3):
     results = []
     try:
-        session = await get_session()
-        url = (f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote_plus(query)}")
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                thumb = data.get("thumbnail", {}).get("source", "")
-                orig = data.get("originalimage", {}).get("source", "")
+        s = await dl.get_session()
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote_plus(query)}"
+        async with s.get(url) as r:
+            if r.status == 200:
+                data = await r.json()
                 results.append({
-                    "type": "wiki",
-                    "title": data.get("title", ""),
-                    "extract": data.get("extract", ""),
-                    "image_url": orig or thumb,
-                    "thumbnail": thumb,
-                    "source": "Wikipedia",
+                    "type":"wiki","title":data.get("title",""),
+                    "extract":data.get("extract",""),
+                    "image_url":data.get("originalimage",{}).get("source","") or data.get("thumbnail",{}).get("source",""),
+                    "source":"Wikipedia",
                 })
-    except:
-        pass
-    # Also search
-    try:
-        session = await get_session()
-        url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={quote_plus(query)}&format=json&srlimit={limit}"
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                for item in data.get("query", {}).get("search", []):
-                    title = item.get("title", "")
-                    snippet = re.sub(r'<[^>]+>', '', item.get("snippet", ""))
-                    results.append({
-                        "type": "wiki",
-                        "title": title,
-                        "extract": snippet,
-                        "source": "Wikipedia",
-                    })
-    except:
-        pass
-    return results
-
-# ── HUGGING FACE DATASETS ──
-
-async def search_huggingface(query, limit=5):
-    results = []
-    try:
-        session = await get_session()
-        url = f"https://huggingface.co/api/datasets?search={quote_plus(query)}&limit={limit}&sort=downloads&direction=-1"
-        async with session.get(url) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                for item in data[:limit]:
-                    results.append({
-                        "type": "dataset",
-                        "title": item.get("id", "Unknown"),
-                        "downloads": item.get("downloads", 0),
-                        "likes": item.get("likes", 0),
-                        "tags": ", ".join(item.get("tags", [])[:5]),
-                        "source": "Hugging Face",
-                    })
-    except Exception as e:
-        logger.error(f"HuggingFace error: {e}")
+    except:pass
     return results
 
 
 # ══════════════════════════════════════════
-#  𝗥𝗘𝗦𝗨𝗟𝗧 𝗙𝗢𝗥𝗠𝗔𝗧𝗧𝗘𝗥 & 𝗦𝗘𝗡𝗗𝗘𝗥
+#  🎵 𝗦𝗘𝗡𝗗 𝗥𝗘𝗦𝗨𝗟𝗧𝗦 𝗧𝗢 𝗧𝗘𝗟𝗘𝗚𝗥𝗔𝗠
 # ══════════════════════════════════════════
 
-async def send_results_to_telegram(bot, chat_id, results, query, category, page=1):
-    """Send each result as NATIVE Telegram media - NO LINKS!"""
+def format_duration(secs):
+    try:
+        secs = int(secs)
+        m, s = divmod(secs, 60)
+        return f"{m}:{s:02d}"
+    except:
+        return "0:00"
+
+def make_progress_bar(val, max_val=10, length=10):
+    try:
+        v = float(val)
+        filled = int(v / max_val * length)
+        return "█" * filled + "░" * (length - filled)
+    except:
+        return "░" * length
+
+
+async def send_results(bot, cid, results, query, category, page=1):
+    """Send results as native Telegram media"""
 
     if not results:
-        no_result = (
-            f"\n{TOP}\n"
-            f"{SIDE}  {S['cross']} {bold_sans('NO RESULTS FOUND')} {S['cross']}\n"
-            f"{BOT}\n\n"
-            f"{S['mag']} {bold_sans('Query')}: {italic_sans(query)}\n"
-            f"{S['folder']} {bold_sans('Category')}: {italic_sans(category)}\n\n"
-            f"{LINE2}\n\n"
-            f"{S['arrow']} {bold_italic('Tips')}:\n"
-            f"  {S['dot']} {italic_sans('Try different keywords')}\n"
-            f"  {S['dot']} {italic_sans('Use English for better results')}\n"
-            f"  {S['dot']} {italic_sans('Try specific category')}\n\n"
-            f"{LINE3}"
+        txt = (
+            f"\n{T}\n{V}  {E['cross']} {bold_s('NO RESULTS FOUND')} {E['cross']}\n{B}\n\n"
+            f"{E['mag']} {bold_s('Query')}: {ital_s(query)}\n"
+            f"{E['folder']} {bold_s('Category')}: {ital_s(category)}\n\n"
+            f"{L2}\n\n"
+            f"{E['arrow']} {bital_s('Tips')}:\n"
+            f"  {E['dot']} {ital_s('Try different keywords')}\n"
+            f"  {E['dot']} {ital_s('Hindi: Arijit Singh, Tere Bina')}\n"
+            f"  {E['dot']} {ital_s('Movie: Dilwale, Sholay')}\n"
+            f"\n{L3}"
         )
-        await bot.send_message(chat_id=chat_id, text=no_result)
+        await bot.send_message(chat_id=cid, text=txt)
         return
 
-    # Header message
-    cat_icons = {
-        "images": S['frame'], "wallpapers": S['wall'], "anime": S['anime'],
-        "movies": S['film'], "videos": S['vid'], "music": S['music'],
-        "books": S['books'], "code": S['code'], "datasets": S['robot'],
-        "nasa_img": S['rocket'], "nasa_vid": S['rocket'], "wiki": S['book'],
-        "all": S['globe'], "waifu": S['sakura'],
+    # Category icons
+    ci = {
+        "song":E['music'], "album":E['disk'], "bollywood":E['film'],
+        "indian_music":E['sitar'], "images":E['frame'], "wallpapers":E['wall'],
+        "anime":E['anime'], "books":E['books'], "code":E['code'],
+        "nasa":E['rocket'], "wiki":E['book'], "waifu":E['cherry'],
+        "all":E['globe'], "indian_video":E['film'], "playlist":E['note'],
+        "artist":E['mic'],
     }
-    c_icon = cat_icons.get(category, S['mag'])
+    icon = ci.get(category, E['mag'])
 
+    # Header
     header = (
-        f"\n{TOP}\n"
-        f"{SIDE}  {c_icon} {bold_sans(category.upper().replace('_',' '))} {bold_sans('RESULTS')} {c_icon}\n"
-        f"{BOT}\n\n"
-        f"{S['mag']} {bold_sans('Query')}: {script_font(query)}\n"
-        f"{S['pack']} {bold_sans('Found')}: {bold_sans(str(len(results)))} {italic_sans('results')} {S['dot']} {italic_sans('Page')} {bold_sans(str(page))}\n\n"
-        f"{SPARK}\n"
+        f"\n{T}\n"
+        f"{V}  {icon} {bold_s(category.upper().replace('_',' '))} {bold_s('RESULTS')} {icon}\n"
+        f"{B}\n\n"
+        f"{E['mag']} {bold_s('Query')}: {script_s(query)}\n"
+        f"{E['pack']} {bold_s('Found')}: {bold_s(str(len(results)))} {ital_s('results')}\n\n"
+        f"{SP}\n"
     )
-    await bot.send_message(chat_id=chat_id, text=header)
+    await bot.send_message(chat_id=cid, text=header)
 
-    sent_count = 0
+    sent = 0
     for i, r in enumerate(results):
         try:
-            rtype = r.get("type", "")
+            rt = r.get("type", "")
 
-            # ═══ IMAGE ═══
-            if rtype == "image":
-                img_url = r.get("image_url", "") or r.get("thumbnail", "")
-                if not img_url:
-                    continue
+            # ═══════════════════════════════════
+            # 🎵 INDIAN SONG (JioSaavn with audio!)
+            # ═══════════════════════════════════
+            if rt == "indian_song":
+                audio_url = r.get("audio_url", "")
+                img_url = r.get("image_url", "")
+                title = r.get("title", "Unknown")
+                artist = r.get("artist", "Unknown")
+                album = r.get("album", "")
+                dur = format_duration(r.get("duration", 0))
+                lang = r.get("language", "Hindi")
+                plays = r.get("play_count", "")
+                label = r.get("label", "")
+                year = r.get("year", "")
+                explicit = r.get("explicit", False)
 
-                caption = (
-                    f"{S['frame']} {bold_sans(r.get('title', 'Image')[:60])}\n"
-                    f"{DOT_LN}\n"
-                    f"{S['palette']} {italic_sans('By')}: {bold_sans(r.get('creator', 'Unknown')[:30])}\n"
+                cap = (
+                    f"{E['india']} {E['music']} {bold_s(title)}\n"
+                    f"{FL}\n"
+                    f"{E['mic']} {ital_s('Artist')}: {bold_s(artist)}\n"
+                )
+                if album:
+                    cap += f"{E['disk']} {ital_s('Album')}: {bold_s(album)}\n"
+                cap += (
+                    f"{E['bolt']} {ital_s('Duration')}: {mono_s(dur)}\n"
+                    f"{E['om']} {ital_s('Language')}: {bold_s(lang)}\n"
+                )
+                if year:
+                    cap += f"{E['star3']} {ital_s('Year')}: {bold_s(str(year))}\n"
+                if plays:
+                    cap += f"{E['fire']} {ital_s('Plays')}: {bold_s(str(plays))}\n"
+                if label:
+                    cap += f"{E['vinyl']} {ital_s('Label')}: {mono_s(label)}\n"
+                if explicit:
+                    cap += f"{E['warn']} {mono_s('EXPLICIT')}\n"
+                cap += (
+                    f"{E['globe']} {ital_s('Source')}: {bold_s('JioSaavn')} {E['india']}\n"
+                    f"{ML}"
+                )
+
+                if audio_url:
+                    # Send as AUDIO in Telegram!
+                    success = await dl.send_audio(bot, cid, audio_url, cap, title, artist, img_url)
+                    if success:
+                        sent += 1
+                    elif img_url:
+                        await dl.send_photo(bot, cid, img_url, cap)
+                        sent += 1
+                elif img_url:
+                    cap += f"\n{E['warn']} {ital_s('Audio not available for this track')}"
+                    await dl.send_photo(bot, cid, img_url, cap)
+                    sent += 1
+
+            # ═══════════════════════════════════
+            # 💿 ALBUM
+            # ═══════════════════════════════════
+            elif rt == "album":
+                img_url = r.get("image_url", "")
+                cap = (
+                    f"{E['india']} {E['disk']} {bold_s(r.get('title','Unknown'))}\n"
+                    f"{FL}\n"
+                    f"{E['mic']} {ital_s('Artist')}: {bold_s(r.get('artist','Unknown'))}\n"
+                    f"{E['star3']} {ital_s('Year')}: {bold_s(str(r.get('year','')))}\n"
+                    f"{E['music']} {ital_s('Songs')}: {bold_s(str(r.get('song_count',0)))}\n"
+                    f"{E['om']} {ital_s('Language')}: {bold_s(r.get('language',''))}\n"
+                    f"{E['globe']} {ital_s('Source')}: {bold_s('JioSaavn')} {E['india']}\n"
+                    f"{ML}"
+                )
+                if img_url:
+                    await dl.send_photo(bot, cid, img_url, cap)
+                else:
+                    await bot.send_message(chat_id=cid, text=cap)
+                sent += 1
+
+                # Show button to get album songs
+                kb = [[InlineKeyboardButton(
+                    f"{E['music']} {bold_s('Get All Songs')}",
+                    callback_data=f"album|{r.get('album_id','')}"
+                )]]
+                await bot.send_message(
+                    chat_id=cid,
+                    text=f"{E['point']} {ital_s('Click to download all songs from this album')}",
+                    reply_markup=InlineKeyboardMarkup(kb)
+                )
+
+            # ═══════════════════════════════════
+            # 🎤 ARTIST INFO
+            # ═══════════════════════════════════
+            elif rt == "artist_info":
+                img_url = r.get("image_url", "")
+                cap = (
+                    f"{E['india']} {E['mic']} {bold_s(r.get('title','Unknown'))}\n"
+                    f"{FL}\n"
+                    f"{E['star3']} {ital_s('Role')}: {bold_s(r.get('role','Artist'))}\n"
+                    f"{E['globe']} {ital_s('Source')}: {bold_s('JioSaavn')} {E['india']}\n"
+                    f"{ML}"
+                )
+                if img_url:
+                    await dl.send_photo(bot, cid, img_url, cap)
+                else:
+                    await bot.send_message(chat_id=cid, text=cap)
+                sent += 1
+
+            # ═══════════════════════════════════
+            # 🎵 SPOTIFY TRACK (30s preview)
+            # ═══════════════════════════════════
+            elif rt == "spotify_track":
+                preview = r.get("preview_url", "")
+                img_url = r.get("image_url", "")
+                title = r.get("title", "Unknown")
+                artist = r.get("artist", "Unknown")
+                pop = r.get("popularity", 0)
+                pop_bar = make_progress_bar(pop, 100, 10)
+
+                cap = (
+                    f"{E['head']} {bold_s(title)}\n"
+                    f"{DL}\n"
+                    f"{E['mic']} {ital_s('Artist')}: {bold_s(artist)}\n"
+                    f"{E['disk']} {ital_s('Album')}: {bold_s(r.get('album',''))}\n"
+                    f"{E['bolt']} {ital_s('Duration')}: {mono_s(format_duration(r.get('duration',0)))}\n"
+                    f"{E['fire']} {ital_s('Popularity')}: [{pop_bar}] {bold_s(str(pop))}%\n"
+                    f"{E['star3']} {ital_s('Released')}: {bold_s(r.get('release_date',''))}\n"
+                    f"{E['globe']} {ital_s('Source')}: {bold_s('Spotify')}\n"
+                    f"{ML}"
+                )
+                if r.get("explicit"):
+                    cap += f"\n{E['warn']} {mono_s('EXPLICIT')}"
+
+                if preview:
+                    cap_audio = cap + f"\n{E['head']} {ital_s('30 second preview')}"
+                    success = await dl.send_audio(bot, cid, preview, cap_audio, title, artist, img_url)
+                    if success:
+                        sent += 1
+                        continue
+                if img_url:
+                    await dl.send_photo(bot, cid, img_url, cap)
+                    sent += 1
+
+            # ═══════════════════════════════════
+            # 🎵 ARCHIVE AUDIO
+            # ═══════════════════════════════════
+            elif rt == "audio":
+                audio_url = r.get("audio_url", "")
+                cap = (
+                    f"{E['music']} {bold_s(r.get('title','Audio')[:60])}\n"
+                    f"{DL}\n"
+                    f"{E['mic']} {ital_s('Artist')}: {bold_s(r.get('artist','Unknown')[:30])}\n"
+                    f"{E['recv']} {ital_s('Downloads')}: {bold_s(str(r.get('downloads',0)))}\n"
+                    f"{E['globe']} {ital_s('Source')}: {bold_s(r.get('source',''))}\n"
+                    f"{ML}"
+                )
+                if audio_url:
+                    success = await dl.send_audio(bot, cid, audio_url, cap, r.get("title",""), r.get("artist",""))
+                    if success:
+                        sent += 1
+                    else:
+                        thumb = r.get("thumbnail", "")
+                        if thumb:
+                            cap += f"\n{E['warn']} {ital_s('File too large for Telegram')}"
+                            await dl.send_photo(bot, cid, thumb, cap)
+                            sent += 1
+
+            # ═══════════════════════════════════
+            # 🎬 VIDEO
+            # ═══════════════════════════════════
+            elif rt == "video":
+                vid_url = r.get("video_url", "")
+                thumb = r.get("thumbnail", "")
+                cap = (
+                    f"{E['film']} {bold_s(r.get('title','Video')[:60])}\n"
+                    f"{DL}\n"
+                    f"{E['art']} {ital_s('By')}: {bold_s(r.get('creator','Unknown')[:30])}\n"
+                    f"{E['recv']} {ital_s('Downloads')}: {bold_s(str(r.get('downloads',0)))}\n"
+                    f"{E['globe']} {ital_s('Source')}: {bold_s(r.get('source',''))}\n"
+                    f"{L2}"
+                )
+                if vid_url:
+                    success = await dl.send_video(bot, cid, vid_url, cap, thumb)
+                    if success:
+                        sent += 1
+                    elif thumb:
+                        cap += f"\n{E['warn']} {ital_s('Video too large, showing preview')}"
+                        await dl.send_photo(bot, cid, thumb, cap)
+                        sent += 1
+                elif thumb:
+                    await dl.send_photo(bot, cid, thumb, cap)
+                    sent += 1
+
+            # ═══════════════════════════════════
+            # 🖼️ IMAGE
+            # ═══════════════════════════════════
+            elif rt == "image":
+                img_url = r.get("image_url","") or r.get("thumbnail","")
+                if not img_url: continue
+                cap = (
+                    f"{E['frame']} {bold_s(r.get('title','Image')[:60])}\n"
+                    f"{DL}\n"
+                    f"{E['art']} {ital_s('By')}: {bold_s(r.get('creator','Unknown')[:30])}\n"
                 )
                 if r.get("resolution"):
-                    caption += f"{S['tv']} {italic_sans('Resolution')}: {bold_sans(r.get('resolution', ''))}\n"
-                if r.get("views"):
-                    caption += f"{S['eye']} {italic_sans('Views')}: {bold_sans(str(r.get('views', 0)))}\n"
-                if r.get("license"):
-                    caption += f"{S['key']} {italic_sans('License')}: {mono_font(r.get('license', 'CC'))}\n"
-                caption += (
-                    f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
-                    f"{LINE2}"
+                    cap += f"{E['tv']} {ital_s('Resolution')}: {bold_s(r.get('resolution',''))}\n"
+                cap += (
+                    f"{E['globe']} {ital_s('Source')}: {bold_s(r.get('source',''))}\n"
+                    f"{L2}"
                 )
+                await dl.send_photo(bot, cid, img_url, cap)
+                sent += 1
 
-                success = await downloader.send_photo_telegram(bot, chat_id, img_url, caption)
-                if success:
-                    sent_count += 1
-
-            # ═══ VIDEO ═══
-            elif rtype == "video":
-                vid_url = r.get("video_url", "") or r.get("media_url", "")
-                if not vid_url:
-                    # Send thumbnail as photo with info
-                    thumb = r.get("thumbnail", "")
-                    if thumb:
-                        caption = (
-                            f"{S['vid']} {bold_sans(r.get('title', 'Video')[:60])}\n"
-                            f"{DOT_LN}\n"
-                            f"{S['palette']} {italic_sans('By')}: {bold_sans(r.get('creator', 'Unknown')[:30])}\n"
-                            f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
-                            f"{S['warn']} {italic_sans('Video too large for Telegram')}\n"
-                            f"{LINE2}"
-                        )
-                        await downloader.send_photo_telegram(bot, chat_id, thumb, caption)
-                        sent_count += 1
-                    continue
-
-                caption = (
-                    f"{S['film']} {bold_sans(r.get('title', 'Video')[:60])}\n"
-                    f"{DOT_LN}\n"
-                    f"{S['palette']} {italic_sans('By')}: {bold_sans(r.get('creator', 'Unknown')[:30])}\n"
-                    f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
-                    f"{S['recv']} {italic_sans('Downloads')}: {bold_sans(str(r.get('downloads', 0)))}\n"
-                    f"{LINE2}"
-                )
-
-                thumb = r.get("thumbnail", "")
-                success = await downloader.send_video_telegram(bot, chat_id, vid_url, caption, thumb)
-                if success:
-                    sent_count += 1
-                else:
-                    # Fallback: send thumbnail with info
-                    if thumb:
-                        caption += f"\n{S['warn']} {italic_sans('Video too large, showing preview')}"
-                        await downloader.send_photo_telegram(bot, chat_id, thumb, caption)
-                        sent_count += 1
-
-            # ═══ AUDIO ═══
-            elif rtype == "audio":
-                audio_url = r.get("audio_url", "")
-                if not audio_url:
-                    continue
-
-                caption = (
-                    f"{S['music']} {bold_sans(r.get('title', 'Audio')[:60])}\n"
-                    f"{DOT_LN}\n"
-                    f"{S['mic']} {italic_sans('Artist')}: {bold_sans(r.get('creator', 'Unknown')[:30])}\n"
-                    f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
-                    f"{S['recv']} {italic_sans('Downloads')}: {bold_sans(str(r.get('downloads', 0)))}\n"
-                    f"{LINE2}"
-                )
-
-                title = r.get("title", "Audio")
-                success = await downloader.send_audio_telegram(bot, chat_id, audio_url, caption, title)
-                if success:
-                    sent_count += 1
-
-            # ═══ ANIME ═══
-            elif rtype == "anime":
-                img_url = r.get("image_url", "") or r.get("thumbnail", "")
-                if not img_url:
-                    continue
-
-                score = r.get("score", "N/A")
-                score_bar = ""
-                if score and score != "N/A":
-                    try:
-                        s = float(score)
-                        filled = int(s / 10 * 10)
-                        score_bar = "█" * filled + "░" * (10 - filled)
-                    except:
-                        score_bar = ""
-
-                caption = (
-                    f"{S['anime']} {bold_sans(r.get('title', 'Anime')[:50])}\n"
+            # ═══════════════════════════════════
+            # 🌸 ANIME
+            # ═══════════════════════════════════
+            elif rt == "anime":
+                img_url = r.get("image_url","")
+                if not img_url: continue
+                score = r.get("score","N/A")
+                bar = make_progress_bar(score if score != "N/A" else 0)
+                cap = (
+                    f"{E['anime']} {bold_s(r.get('title','')[:50])}\n"
                 )
                 if r.get("title_jp"):
-                    caption += f"   {italic_sans(r.get('title_jp', '')[:40])}\n"
-                caption += f"{DOT_LN}\n"
-
-                if score_bar:
-                    caption += f"{S['star2']} {italic_sans('Score')}: {bold_sans(str(score))} [{score_bar}]\n"
-                else:
-                    caption += f"{S['star2']} {italic_sans('Score')}: {bold_sans(str(score))}\n"
-
-                caption += (
-                    f"{S['tv']} {italic_sans('Episodes')}: {bold_sans(str(r.get('episodes', '?')))}\n"
-                    f"{S['bolt']} {italic_sans('Status')}: {bold_sans(r.get('status', 'N/A'))}\n"
+                    cap += f"   {ital_s(r.get('title_jp','')[:40])}\n"
+                cap += (
+                    f"{DL}\n"
+                    f"{E['star2']} {ital_s('Score')}: {bold_s(str(score))} [{bar}]\n"
+                    f"{E['tv']} {ital_s('Episodes')}: {bold_s(str(r.get('episodes','?')))}\n"
+                    f"{E['bolt']} {ital_s('Status')}: {bold_s(r.get('status',''))}\n"
                 )
                 if r.get("genres"):
-                    caption += f"{S['puzzle']} {italic_sans('Genres')}: {mono_font(r.get('genres', ''))}\n"
-                if r.get("year"):
-                    caption += f"{S['globe']} {italic_sans('Year')}: {bold_sans(str(r.get('year', '')))}\n"
-                caption += f"{DOT_LN}\n"
+                    cap += f"{E['puzzle']} {ital_s('Genres')}: {mono_s(r.get('genres',''))}\n"
+                if r.get("synopsis"):
+                    cap += f"{DL}\n{ital_s(r.get('synopsis','')[:200])}\n"
+                cap += f"\n{E['globe']} {ital_s('Source')}: {bold_s(r.get('source',''))}\n{L2}"
+                if len(cap) > 1024: cap = cap[:1020] + "..."
+                await dl.send_photo(bot, cid, img_url, cap)
+                sent += 1
 
-                synopsis = r.get("synopsis", "")
-                if synopsis:
-                    caption += f"{italic_sans(synopsis[:200])}\n"
-                caption += f"\n{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
-                caption += f"{LINE2}"
-
-                # Truncate caption
-                if len(caption) > 1024:
-                    caption = caption[:1020] + "..."
-
-                await downloader.send_photo_telegram(bot, chat_id, img_url, caption)
-                sent_count += 1
-
-            # ═══ BOOK ═══
-            elif rtype == "book":
-                caption = (
-                    f"{S['books']} {bold_sans(r.get('title', 'Book')[:60])}\n"
-                    f"{DOT_LN}\n"
-                    f"{S['palette']} {italic_sans('Author')}: {bold_sans(r.get('creator', 'Unknown')[:40])}\n"
-                    f"{S['recv']} {italic_sans('Downloads')}: {bold_sans(str(r.get('downloads', 0)))}\n"
+            # ═══════════════════════════════════
+            # 📚 BOOK
+            # ═══════════════════════════════════
+            elif rt == "book":
+                cap = (
+                    f"{E['books']} {bold_s(r.get('title','')[:60])}\n"
+                    f"{DL}\n"
+                    f"{E['art']} {ital_s('Author')}: {bold_s(r.get('creator','')[:40])}\n"
+                    f"{E['recv']} {ital_s('Downloads')}: {bold_s(str(r.get('downloads',0)))}\n"
+                    f"{E['globe']} {ital_s('Source')}: {bold_s(r.get('source',''))}\n{L2}"
                 )
-                if r.get("subjects"):
-                    caption += f"{S['puzzle']} {italic_sans('Subjects')}: {mono_font(r.get('subjects', '')[:60])}\n"
-                caption += (
-                    f"{S['globe']} {italic_sans('Source')}: {bold_sans(r.get('source', ''))}\n"
-                    f"{LINE2}"
-                )
-
-                # Send cover image
-                cover = r.get("cover_url", "")
+                cover = r.get("cover_url","")
                 if cover:
-                    await downloader.send_photo_telegram(bot, chat_id, cover, caption)
-                    sent_count += 1
+                    await dl.send_photo(bot, cid, cover, cap)
+                    sent += 1
+                epub = r.get("epub_url","")
+                if epub:
+                    fcap = f"{E['books']} {bold_s(r.get('title','')[:50])}\n{E['pack']} {ital_s('EPUB')}"
+                    safe = re.sub(r'[^\w\s-]','',r.get('title','book'))[:50]
+                    await dl.send_doc(bot, cid, epub, fcap, f"{safe}.epub")
+                    sent += 1
 
-                # Send ebook file
-                epub_url = r.get("epub_url", "")
-                txt_url = r.get("txt_url", "")
-                if epub_url:
-                    title = r.get("title", "book")
-                    file_caption = f"{S['books']} {bold_sans(title[:50])}\n{S['pack']} {italic_sans('EPUB Format')}"
-                    safe_title = re.sub(r'[^\w\s-]', '', title)[:50]
-                    await downloader.send_document_telegram(bot, chat_id, epub_url, file_caption, f"{safe_title}.epub")
-                    sent_count += 1
-                elif txt_url:
-                    title = r.get("title", "book")
-                    file_caption = f"{S['books']} {bold_sans(title[:50])}\n{S['doc']} {italic_sans('Text Format')}"
-                    safe_title = re.sub(r'[^\w\s-]', '', title)[:50]
-                    await downloader.send_document_telegram(bot, chat_id, txt_url, file_caption, f"{safe_title}.txt")
-                    sent_count += 1
-
-            # ═══ CODE (GitHub) ═══
-            elif rtype == "code":
-                avatar = r.get("avatar_url", "")
-                caption = (
-                    f"{S['code']} {bold_sans(r.get('title', 'Repo')[:50])}\n"
-                    f"{DOT_LN}\n"
-                    f"{S['star2']} {italic_sans('Stars')}: {bold_sans(str(r.get('stars', 0)))} "
-                    f"{S['dot']} {italic_sans('Forks')}: {bold_sans(str(r.get('forks', 0)))}\n"
-                    f"{S['bolt']} {italic_sans('Language')}: {bold_sans(str(r.get('language', 'N/A')))}\n"
-                    f"{DOT_LN}\n"
-                    f"{italic_sans(r.get('desc', '')[:150])}\n"
-                    f"\n{S['globe']} {italic_sans('Source')}: {bold_sans('GitHub')}\n"
-                    f"{LINE2}"
+            # ═══════════════════════════════════
+            # 💻 CODE
+            # ═══════════════════════════════════
+            elif rt == "code":
+                cap = (
+                    f"{E['code']} {bold_s(r.get('title','')[:50])}\n"
+                    f"{DL}\n"
+                    f"{E['star2']} {ital_s('Stars')}: {bold_s(str(r.get('stars',0)))} "
+                    f"{E['dot']} {ital_s('Forks')}: {bold_s(str(r.get('forks',0)))}\n"
+                    f"{E['bolt']} {ital_s('Language')}: {bold_s(str(r.get('language','N/A')))}\n"
+                    f"{DL}\n{ital_s(r.get('desc','')[:150])}\n"
+                    f"\n{E['globe']} {bold_s('GitHub')}\n{L2}"
                 )
+                avatar = r.get("avatar_url","")
                 if avatar:
-                    await downloader.send_photo_telegram(bot, chat_id, avatar, caption)
+                    await dl.send_photo(bot, cid, avatar, cap)
                 else:
-                    await bot.send_message(chat_id=chat_id, text=caption)
-                sent_count += 1
+                    await bot.send_message(chat_id=cid, text=cap)
+                sent += 1
 
-            # ═══ WIKI ═══
-            elif rtype == "wiki":
-                img = r.get("image_url", "") or r.get("thumbnail", "")
-                caption = (
-                    f"{S['book']} {bold_sans(r.get('title', 'Article')[:50])}\n"
-                    f"{DOT_LN}\n"
-                    f"{italic_sans(r.get('extract', '')[:400])}\n"
-                    f"\n{S['globe']} {italic_sans('Source')}: {bold_sans('Wikipedia')}\n"
-                    f"{LINE2}"
+            # ═══════════════════════════════════
+            # 📖 WIKI
+            # ═══════════════════════════════════
+            elif rt == "wiki":
+                img = r.get("image_url","")
+                cap = (
+                    f"{E['book']} {bold_s(r.get('title','')[:50])}\n"
+                    f"{DL}\n{ital_s(r.get('extract','')[:400])}\n"
+                    f"\n{E['globe']} {bold_s('Wikipedia')}\n{L2}"
                 )
-                if len(caption) > 1024:
-                    caption = caption[:1020] + "..."
+                if len(cap) > 1024: cap = cap[:1020] + "..."
                 if img:
-                    await downloader.send_photo_telegram(bot, chat_id, img, caption)
+                    await dl.send_photo(bot, cid, img, cap)
                 else:
-                    await bot.send_message(chat_id=chat_id, text=caption)
-                sent_count += 1
+                    await bot.send_message(chat_id=cid, text=cap)
+                sent += 1
 
-            # ═══ DATASET ═══
-            elif rtype == "dataset":
-                text = (
-                    f"{S['robot']} {bold_sans(r.get('title', 'Dataset')[:50])}\n"
-                    f"{DOT_LN}\n"
-                    f"{S['recv']} {italic_sans('Downloads')}: {bold_sans(str(r.get('downloads', 0)))}\n"
-                    f"{S['heart']} {italic_sans('Likes')}: {bold_sans(str(r.get('likes', 0)))}\n"
-                    f"{S['puzzle']} {italic_sans('Tags')}: {mono_font(r.get('tags', '')[:60])}\n"
-                    f"\n{S['globe']} {italic_sans('Source')}: {bold_sans('Hugging Face')}\n"
-                    f"{LINE2}"
+            # ═══════════════════════════════════
+            # LAST.FM TRACK
+            # ═══════════════════════════════════
+            elif rt == "lastfm_track":
+                img = r.get("image_url", "")
+                cap = (
+                    f"{E['head']} {bold_s(r.get('title','')[:50])}\n"
+                    f"{DL}\n"
+                    f"{E['mic']} {ital_s('Artist')}: {bold_s(r.get('artist',''))}\n"
+                    f"{E['eye']} {ital_s('Listeners')}: {bold_s(r.get('listeners','0'))}\n"
+                    f"{E['globe']} {bold_s('Last.fm')}\n{ML}"
                 )
-                await bot.send_message(chat_id=chat_id, text=text)
-                sent_count += 1
+                if img:
+                    await dl.send_photo(bot, cid, img, cap)
+                else:
+                    await bot.send_message(chat_id=cid, text=cap)
+                sent += 1
 
-            await asyncio.sleep(0.5)  # Rate limiting
+            await asyncio.sleep(0.5)
 
-        except Exception as e:
-            logger.error(f"Error sending result {i}: {e}")
+        except Exception as ex:
+            logger.error(f"Send result {i} error: {ex}")
             continue
 
-    # Footer with navigation
-    nav_buttons = []
+    # Footer
+    nav = []
     if page > 1:
-        nav_buttons.append(InlineKeyboardButton(
-            f"⬅️ {bold_sans('Page')} {page-1}",
-            callback_data=f"p|{category}|{query[:40]}|{page-1}"
-        ))
-    nav_buttons.append(InlineKeyboardButton(
-        f"➡️ {bold_sans('Page')} {page+1}",
-        callback_data=f"p|{category}|{query[:40]}|{page+1}"
-    ))
+        nav.append(InlineKeyboardButton(f"⬅️ Page {page-1}", callback_data=f"p|{category}|{query[:30]}|{page-1}"))
+    nav.append(InlineKeyboardButton(f"➡️ Page {page+1}", callback_data=f"p|{category}|{query[:30]}|{page+1}"))
 
-    footer_text = (
-        f"\n{LINE2}\n"
-        f"{S['check']} {bold_sans('Sent')}: {bold_sans(str(sent_count))} / {len(results)} {italic_sans('results')}\n"
-        f"{S['spark']} {italic_sans('Page')} {bold_sans(str(page))} {S['dot']} {italic_sans('Category')}: {bold_sans(category)}\n"
-        f"{LINE3}\n"
+    footer = (
+        f"\n{L2}\n"
+        f"{E['check']} {bold_s('Sent')}: {bold_s(str(sent))}/{len(results)}\n"
+        f"{E['spark']} {ital_s('Page')} {bold_s(str(page))}\n"
+        f"{L3}\n"
     )
-
-    keyboard = [
-        nav_buttons,
+    kb = [
+        nav,
         [
-            InlineKeyboardButton(f"{S['folder']} Categories", callback_data="menu_cat"),
-            InlineKeyboardButton(f"{S['globe']} Home", callback_data="menu_home"),
+            InlineKeyboardButton(f"{E['folder']} Menu", callback_data="menu_cat"),
+            InlineKeyboardButton(f"{E['india']} Home", callback_data="menu_home"),
         ]
     ]
+    await bot.send_message(chat_id=cid, text=footer, reply_markup=InlineKeyboardMarkup(kb))
 
-    await bot.send_message(
-        chat_id=chat_id,
-        text=footer_text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+
+# ══════════════════════════════════════════
+#  𝗙𝗘𝗧𝗖𝗛 𝗥𝗘𝗦𝗨𝗟𝗧𝗦
+# ══════════════════════════════════════════
+
+async def fetch(query, cat, page=1):
+    if cat == "song":
+        return await search_jiosaavn(query, 8)
+    elif cat == "album":
+        return await get_jiosaavn_album(query, 5)
+    elif cat == "playlist":
+        return await search_jiosaavn_playlists(query, 5)
+    elif cat == "artist":
+        return await search_jiosaavn_artists(query, 5)
+    elif cat == "bollywood":
+        r1 = await search_jiosaavn(f"{query} bollywood", 5)
+        r2 = await search_archive_indian_video(query, 3, page)
+        return r1 + r2
+    elif cat == "indian_music":
+        r1 = await search_jiosaavn(query, 5)
+        r2 = await search_archive_indian_audio(query, 3, page)
+        r3 = await search_spotify(query, 2) if SPOTIFY_CLIENT_ID else []
+        r4 = await search_lastfm(query, 2) if LASTFM_API_KEY else []
+        return r1 + r2 + r3 + r4
+    elif cat == "indian_video":
+        return await search_archive_indian_video(query, 5, page)
+    elif cat == "images":
+        r1 = await search_openverse(query, page, 4)
+        r2 = await search_nasa(query, 2)
+        return r1 + r2
+    elif cat == "wallpapers":
+        return await search_wallhaven(query, page, 6)
+    elif cat == "anime":
+        return await search_anime(query, 5)
+    elif cat == "books":
+        return await search_gutenberg(query, 5, page)
+    elif cat == "code":
+        return await search_github(query, 5)
+    elif cat == "waifu":
+        urls = await get_waifu_many(query or "waifu", 5)
+        return [{"type":"image","title":f"Waifu {query}","image_url":u,
+                "creator":"waifu.pics","source":"waifu.pics"} for u in urls]
+    elif cat == "wiki":
+        return await search_wikipedia(query, 3)
+    elif cat == "nasa":
+        return await search_nasa(query, 5)
+    elif cat == "all":
+        tasks = [
+            search_jiosaavn(query, 3),
+            search_openverse(query, 1, 2),
+            search_anime(query, 2),
+            search_gutenberg(query, 2),
+        ]
+        gathered = await asyncio.gather(*tasks, return_exceptions=True)
+        all_r = []
+        for r in gathered:
+            if isinstance(r, list): all_r.extend(r)
+        return all_r
+    return []
 
 
 # ══════════════════════════════════════════
@@ -1073,492 +1245,476 @@ async def send_results_to_telegram(bot, chat_id, results, query, category, page=
 # ══════════════════════════════════════════
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    name = user.first_name or "User"
-
-    text = (
-        f"\n{TOP}\n"
-        f"{SIDE}  {S['crown']} {neg_squared('ULTIMATE MEDIA BOT')} {S['crown']}\n"
-        f"{BOT}\n\n"
-        f"{S['spark']} {script_font('Welcome')}, {bold_sans(name)}! {S['spark']}\n\n"
-        f"{LINE2}\n\n"
-        f"{S['robot']} {fraktur_font('What I Can Do')}:\n\n"
-        f"  {S['frame']} {bold_sans('Images')} {S['dot']} {italic_sans('Openverse 800M+, NASA, Wikimedia')}\n"
-        f"  {S['wall']} {bold_sans('Wallpapers')} {S['dot']} {italic_sans('Wallhaven HD/4K')}\n"
-        f"  {S['anime']} {bold_sans('Anime')} {S['dot']} {italic_sans('MAL, Kitsu, Waifu pics')}\n"
-        f"  {S['film']} {bold_sans('Movies')} {S['dot']} {italic_sans('Internet Archive Free')}\n"
-        f"  {S['vid']} {bold_sans('Videos')} {S['dot']} {italic_sans('Archive.org, NASA')}\n"
-        f"  {S['music']} {bold_sans('Music')} {S['dot']} {italic_sans('Archive Audio, Free Music')}\n"
-        f"  {S['books']} {bold_sans('Books')} {S['dot']} {italic_sans('Gutenberg 70K+ ebooks')}\n"
-        f"  {S['code']} {bold_sans('Code')} {S['dot']} {italic_sans('GitHub Repos')}\n"
-        f"  {S['robot']} {bold_sans('Datasets')} {S['dot']} {italic_sans('Hugging Face AI')}\n"
-        f"  {S['rocket']} {bold_sans('NASA')} {S['dot']} {italic_sans('Space photos & videos')}\n"
-        f"  {S['book']} {bold_sans('Wikipedia')} {S['dot']} {italic_sans('Knowledge articles')}\n"
-        f"  {S['sakura']} {bold_sans('Waifu')} {S['dot']} {italic_sans('Anime character images')}\n\n"
-        f"{LINE2}\n\n"
-        f"{S['bolt']} {bold_italic('Everything shows INSIDE Telegram!')}\n"
-        f"{S['bolt']} {bold_italic('Photos, Videos, Audio - All Native!')}\n"
-        f"{S['bolt']} {bold_italic('NO external links needed!')}\n\n"
-        f"{S['arrow']} {bold_sans('Just type anything to search!')}\n\n"
-        f"{LINE3}\n"
+    name = update.effective_user.first_name or "User"
+    txt = (
+        f"\n{T}\n"
+        f"{V}  {E['crown']} {neg_sq('INDIAN MEDIA BOT')} {E['crown']}\n"
+        f"{B}\n\n"
+        f"{E['spark']} {script_s('Namaste')}, {bold_s(name)}! {E['namaste']}\n\n"
+        f"{IL}\n\n"
+        f"{E['india']} {bold_s('INDIAN MUSIC')} {E['sitar']}\n"
+        f"  {E['music']} {bold_s('Songs')} — {ital_s('JioSaavn, Spotify, Last.fm')}\n"
+        f"  {E['disk']} {bold_s('Albums')} — {ital_s('Full album songs download')}\n"
+        f"  {E['note']} {bold_s('Playlists')} — {ital_s('Curated playlists')}\n"
+        f"  {E['mic']} {bold_s('Artists')} — {ital_s('Artist info & songs')}\n"
+        f"  {E['film']} {bold_s('Bollywood')} — {ital_s('Movie songs + videos')}\n"
+        f"  {E['head']} {bold_s('Lyrics')} — {ital_s('Song lyrics')}\n\n"
+        f"{IL}\n\n"
+        f"{E['globe']} {bold_s('WORLD MEDIA')} {E['spark']}\n"
+        f"  {E['frame']} {bold_s('Images')} — {ital_s('800M+ Openverse, NASA')}\n"
+        f"  {E['wall']} {bold_s('Wallpapers')} — {ital_s('Wallhaven HD/4K')}\n"
+        f"  {E['anime']} {bold_s('Anime')} — {ital_s('MAL + Waifu')}\n"
+        f"  {E['books']} {bold_s('Books')} — {ital_s('70K+ free ebooks')}\n"
+        f"  {E['code']} {bold_s('Code')} — {ital_s('GitHub repos')}\n"
+        f"  {E['rocket']} {bold_s('NASA')} — {ital_s('Space media')}\n"
+        f"  {E['book']} {bold_s('Wikipedia')} — {ital_s('Articles')}\n\n"
+        f"{L2}\n\n"
+        f"{E['bolt']} {bital_s('SAB KUCH TELEGRAM MEIN!')}\n"
+        f"{E['bolt']} {bital_s('SONGS AUDIO MEIN AYENGE!')}\n"
+        f"{E['bolt']} {bital_s('NO LINKS - DIRECT PLAY!')}\n\n"
+        f"{E['arrow']} {bold_s('Just type song name!')}\n"
+        f"   {ital_s('Example: Tum Hi Ho')}\n\n"
+        f"{L3}\n"
     )
 
     kb = [
+        [InlineKeyboardButton(f"{E['mag']} {bold_s('Search All')}", callback_data="cat|all")],
         [
-            InlineKeyboardButton(f"{S['mag']}  {bold_sans('Search All')}", callback_data="cat|all"),
+            InlineKeyboardButton(f"{E['music']} Song", callback_data="cat|song"),
+            InlineKeyboardButton(f"{E['disk']} Album", callback_data="cat|album"),
+            InlineKeyboardButton(f"{E['mic']} Artist", callback_data="cat|artist"),
         ],
         [
-            InlineKeyboardButton(f"{S['frame']} Images", callback_data="cat|images"),
-            InlineKeyboardButton(f"{S['wall']} Walls", callback_data="cat|wallpapers"),
-            InlineKeyboardButton(f"{S['anime']} Anime", callback_data="cat|anime"),
+            InlineKeyboardButton(f"{E['film']} Bollywood", callback_data="cat|bollywood"),
+            InlineKeyboardButton(f"{E['sitar']} Indian", callback_data="cat|indian_music"),
+            InlineKeyboardButton(f"{E['note']} Playlist", callback_data="cat|playlist"),
         ],
         [
-            InlineKeyboardButton(f"{S['film']} Movies", callback_data="cat|movies"),
-            InlineKeyboardButton(f"{S['vid']} Videos", callback_data="cat|videos"),
-            InlineKeyboardButton(f"{S['music']} Music", callback_data="cat|music"),
+            InlineKeyboardButton(f"{E['frame']} Images", callback_data="cat|images"),
+            InlineKeyboardButton(f"{E['wall']} Walls", callback_data="cat|wallpapers"),
+            InlineKeyboardButton(f"{E['anime']} Anime", callback_data="cat|anime"),
         ],
         [
-            InlineKeyboardButton(f"{S['books']} Books", callback_data="cat|books"),
-            InlineKeyboardButton(f"{S['code']} Code", callback_data="cat|code"),
-            InlineKeyboardButton(f"{S['robot']} AI Data", callback_data="cat|datasets"),
+            InlineKeyboardButton(f"{E['books']} Books", callback_data="cat|books"),
+            InlineKeyboardButton(f"{E['code']} Code", callback_data="cat|code"),
+            InlineKeyboardButton(f"{E['cherry']} Waifu", callback_data="cat|waifu"),
         ],
         [
-            InlineKeyboardButton(f"{S['rocket']} NASA", callback_data="cat|nasa_img"),
-            InlineKeyboardButton(f"{S['book']} Wiki", callback_data="cat|wiki"),
-            InlineKeyboardButton(f"{S['sakura']} Waifu", callback_data="cat|waifu"),
+            InlineKeyboardButton(f"{E['rocket']} NASA", callback_data="cat|nasa"),
+            InlineKeyboardButton(f"{E['book']} Wiki", callback_data="cat|wiki"),
+            InlineKeyboardButton(f"{E['dice']} Random", callback_data="random"),
         ],
-        [
-            InlineKeyboardButton(f"{S['dice']}  {bold_sans('Random')}", callback_data="random"),
-            InlineKeyboardButton(f"❓ {bold_sans('Help')}", callback_data="help"),
-        ],
+        [InlineKeyboardButton(f"❓ {bold_s('Help')}", callback_data="help")],
     ]
-
-    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb))
+    await update.message.reply_text(txt, reply_markup=InlineKeyboardMarkup(kb))
 
 
 async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    text = (
-        f"\n{TOP}\n"
-        f"{SIDE}  {S['book']} {bold_sans('COMMANDS & HELP')} {S['book']}\n"
-        f"{BOT}\n\n"
-        f"{S['arrow']} {bold_sans('Search Commands')}:\n\n"
-        f"  {S['tri']} /search {italic_sans('query')} {S['dot']} All databases\n"
-        f"  {S['tri']} /image {italic_sans('query')} {S['dot']} Photos & images\n"
-        f"  {S['tri']} /wallpaper {italic_sans('query')} {S['dot']} HD wallpapers\n"
-        f"  {S['tri']} /anime {italic_sans('query')} {S['dot']} Anime search\n"
-        f"  {S['tri']} /waifu {italic_sans('category')} {S['dot']} Anime images\n"
-        f"  {S['tri']} /movie {italic_sans('query')} {S['dot']} Free movies\n"
-        f"  {S['tri']} /video {italic_sans('query')} {S['dot']} Free videos\n"
-        f"  {S['tri']} /music {italic_sans('query')} {S['dot']} Free music\n"
-        f"  {S['tri']} /book {italic_sans('query')} {S['dot']} Free ebooks\n"
-        f"  {S['tri']} /code {italic_sans('query')} {S['dot']} GitHub repos\n"
-        f"  {S['tri']} /dataset {italic_sans('query')} {S['dot']} AI datasets\n"
-        f"  {S['tri']} /nasa {italic_sans('query')} {S['dot']} NASA media\n"
-        f"  {S['tri']} /wiki {italic_sans('query')} {S['dot']} Wikipedia\n"
-        f"  {S['tri']} /random {S['dot']} Random discovery\n\n"
-        f"{LINE2}\n\n"
-        f"{S['spark']} {bold_italic('PRO TIP')}: Just type anything!\n"
-        f"   {italic_sans('Bot auto-searches in your last category')}\n\n"
-        f"{S['check']} {bold_sans('Waifu Categories')}:\n"
-        f"   {mono_font('waifu neko shinobu megumin')}\n"
-        f"   {mono_font('hug pat smile wave dance')}\n"
-        f"   {mono_font('kiss blush happy wink cry')}\n\n"
-        f"{LINE3}\n"
+    txt = (
+        f"\n{T}\n{V}  {E['book']} {bold_s('HELP')} {E['book']}\n{B}\n\n"
+        f"{E['india']} {bold_s('INDIAN MUSIC COMMANDS')}:\n\n"
+        f"  {E['tri']} /song {ital_s('name')} — {ital_s('Indian songs')}\n"
+        f"  {E['tri']} /album {ital_s('name')} — {ital_s('Full album')}\n"
+        f"  {E['tri']} /artist {ital_s('name')} — {ital_s('Artist search')}\n"
+        f"  {E['tri']} /bollywood {ital_s('query')} — {ital_s('Bollywood')}\n"
+        f"  {E['tri']} /lyrics {ital_s('song')} — {ital_s('Song lyrics')}\n"
+        f"  {E['tri']} /playlist {ital_s('name')} — {ital_s('Playlists')}\n"
+        f"  {E['tri']} /hindi {ital_s('query')} — {ital_s('Hindi songs')}\n"
+        f"  {E['tri']} /punjabi {ital_s('query')} — {ital_s('Punjabi songs')}\n"
+        f"  {E['tri']} /tamil {ital_s('query')} — {ital_s('Tamil songs')}\n"
+        f"  {E['tri']} /telugu {ital_s('query')} — {ital_s('Telugu songs')}\n\n"
+        f"{L2}\n\n"
+        f"{E['globe']} {bold_s('OTHER COMMANDS')}:\n\n"
+        f"  {E['tri']} /search {ital_s('query')} — {ital_s('All databases')}\n"
+        f"  {E['tri']} /image {ital_s('query')} — {ital_s('Photos')}\n"
+        f"  {E['tri']} /wallpaper {ital_s('query')} — {ital_s('Wallpapers')}\n"
+        f"  {E['tri']} /anime {ital_s('query')} — {ital_s('Anime')}\n"
+        f"  {E['tri']} /waifu {ital_s('cat')} — {ital_s('Anime images')}\n"
+        f"  {E['tri']} /book {ital_s('query')} — {ital_s('Free ebooks')}\n"
+        f"  {E['tri']} /code {ital_s('query')} — {ital_s('GitHub')}\n"
+        f"  {E['tri']} /nasa {ital_s('query')} — {ital_s('Space')}\n"
+        f"  {E['tri']} /wiki {ital_s('query')} — {ital_s('Wikipedia')}\n"
+        f"  {E['tri']} /random — {ital_s('Random discovery')}\n\n"
+        f"{L2}\n\n"
+        f"{E['spark']} {bital_s('PRO TIPS')}:\n"
+        f"  {E['dot']} {ital_s('Sirf gaane ka naam likho, audio aayega!')}\n"
+        f"  {E['dot']} {ital_s('Album search karo, saare gaane milenge!')}\n"
+        f"  {E['dot']} {ital_s('Hindi, Punjabi, Tamil, Telugu sab hai!')}\n\n"
+        f"{L3}\n"
     )
-
-    kb = [[InlineKeyboardButton(f"{S['arrow2']} Back", callback_data="menu_home")]]
-
+    kb = [[InlineKeyboardButton(f"{E['arrow2']} Back", callback_data="menu_home")]]
     if update.callback_query:
-        await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
+        await update.callback_query.edit_message_text(txt, reply_markup=InlineKeyboardMarkup(kb))
     else:
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(kb))
+        await update.message.reply_text(txt, reply_markup=InlineKeyboardMarkup(kb))
 
 
-# ─── Category-specific commands ───
-
-async def _do_search(update, ctx, query, category):
+async def do_search(update, ctx, query, cat):
     if not query:
-        USER_DATA[update.effective_user.id] = {"cat": category}
-        text = (
-            f"\n{LINE2}\n"
-            f"{S['mag']} {bold_sans(category.upper())} {bold_sans('SEARCH')}\n\n"
-            f"{S['arrow']} {italic_sans('Type your search query:')}\n"
-            f"{S['dot']} {italic_sans('I will search and show results')}\n"
-            f"{S['dot']} {bold_italic('directly in Telegram!')}\n"
-            f"{LINE2}\n"
+        UD[update.effective_user.id] = {"cat": cat}
+        cat_names = {
+            "song":"🎵 Indian Song","album":"💿 Album","artist":"🎤 Artist",
+            "bollywood":"🎬 Bollywood","indian_music":"🇮🇳 Indian Music",
+            "playlist":"🎶 Playlist","images":"🖼️ Images","wallpapers":"🌄 Wallpapers",
+            "anime":"🌸 Anime","books":"📚 Books","code":"💻 Code",
+            "waifu":"🌸 Waifu","nasa":"🚀 NASA","wiki":"📖 Wiki","all":"🌍 All",
+        }
+        txt = (
+            f"\n{L2}\n"
+            f"{E['mag']} {bold_s(cat_names.get(cat, cat.upper()))}\n\n"
+            f"{E['arrow']} {ital_s('Apna search query type karo!')}\n"
+            f"{E['dot']} {bital_s('Telegram mein hi result aayega!')}\n"
+            f"{L2}\n"
         )
-        await update.message.reply_text(text)
+        await update.message.reply_text(txt)
         return
-    
+
     await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
-    
     loading = (
-        f"\n{S['bolt']} {bold_sans('Searching')}...\n"
-        f"{S['mag']} {italic_sans(query)}\n"
-        f"{S['folder']} {italic_sans(category)}\n"
-        f"{SPARK}\n"
+        f"\n{E['bolt']} {bold_s('Searching')}...\n"
+        f"{E['mag']} {script_s(query)}\n"
+        f"{SP}\n"
     )
     msg = await update.message.reply_text(loading)
-    
-    results = await _fetch_results(query, category)
-    await msg.delete()
-    await send_results_to_telegram(ctx.bot, update.effective_chat.id, results, query, category)
+    results = await fetch(query, cat)
+    try: await msg.delete()
+    except: pass
+    await send_results(ctx.bot, update.effective_chat.id, results, query, cat)
 
 
-async def _fetch_results(query, category, page=1):
-    """Fetch results from APIs based on category"""
-    if category == "images":
-        r1 = await search_openverse_images(query, page, 5)
-        r2 = await search_wikimedia_images(query, 3)
-        return r1 + r2
-    elif category == "wallpapers":
-        return await search_wallhaven(query, page, 8)
-    elif category == "anime":
-        r1 = await search_anime_jikan(query, page, 5)
-        r2 = await search_anime_kitsu(query, 3)
-        return r1 + r2
-    elif category == "movies" or category == "videos":
-        return await search_archive_video(query, 5, page)
-    elif category == "music":
-        return await search_archive_audio(query, 5, page)
-    elif category == "books":
-        return await search_gutenberg(query, 5, page)
-    elif category == "code":
-        return await search_github_repos(query, 5, page)
-    elif category == "datasets":
-        return await search_huggingface(query, 5)
-    elif category == "nasa_img":
-        return await search_nasa(query, "image", 5)
-    elif category == "nasa_vid":
-        return await search_nasa(query, "video", 5)
-    elif category == "wiki":
-        return await search_wikipedia(query, 3)
-    elif category == "waifu":
-        urls = await get_waifu_many(query or "waifu", 5)
-        return [{"type": "image", "title": f"Waifu {query}", "image_url": u,
-                 "creator": "Waifu.pics", "source": "Waifu.pics", "license": "API"} for u in urls]
-    elif category == "all":
-        all_r = []
-        tasks = [
-            search_openverse_images(query, 1, 3),
-            search_wallhaven(query, 1, 2),
-            search_anime_jikan(query, 1, 2),
-            search_archive_video(query, 2, 1),
-            search_archive_audio(query, 2, 1),
-            search_gutenberg(query, 2, 1),
-            search_nasa(query, "image", 2),
-        ]
-        gathered = await asyncio.gather(*tasks, return_exceptions=True)
-        for r in gathered:
-            if isinstance(r, list):
-                all_r.extend(r)
-        return all_r
-    return []
+# Individual commands
+async def cmd_search(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "all")
 
+async def cmd_song(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "song")
 
-async def cmd_search(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "all")
+async def cmd_album(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "album")
 
-async def cmd_image(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "images")
+async def cmd_artist(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "artist")
 
-async def cmd_wallpaper(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "wallpapers")
+async def cmd_bollywood(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "bollywood")
 
-async def cmd_anime(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "anime")
+async def cmd_playlist(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "playlist")
 
-async def cmd_movie(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "movies")
+async def cmd_hindi(u, c):
+    q = " ".join(c.args) if c.args else ""
+    await do_search(u, c, f"{q} hindi" if q else "", "song")
 
-async def cmd_video(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "videos")
+async def cmd_punjabi(u, c):
+    q = " ".join(c.args) if c.args else ""
+    await do_search(u, c, f"{q} punjabi" if q else "", "song")
 
-async def cmd_music(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "music")
+async def cmd_tamil(u, c):
+    q = " ".join(c.args) if c.args else ""
+    await do_search(u, c, f"{q} tamil" if q else "", "song")
 
-async def cmd_book(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "books")
+async def cmd_telugu(u, c):
+    q = " ".join(c.args) if c.args else ""
+    await do_search(u, c, f"{q} telugu" if q else "", "song")
 
-async def cmd_code(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "code")
+async def cmd_image(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "images")
 
-async def cmd_dataset(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "datasets")
+async def cmd_wallpaper(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "wallpapers")
 
-async def cmd_nasa(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "nasa_img")
+async def cmd_anime(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "anime")
 
-async def cmd_wiki(update, ctx):
-    q = " ".join(ctx.args) if ctx.args else ""
-    await _do_search(update, ctx, q, "wiki")
+async def cmd_book(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "books")
 
-async def cmd_waifu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    cat = ctx.args[0] if ctx.args else "waifu"
-    
-    valid = ["waifu", "neko", "shinobu", "megumin", "bully", "cuddle",
-             "cry", "hug", "awoo", "kiss", "lick", "pat", "smug",
-             "bonk", "yeet", "blush", "smile", "wave", "highfive",
-             "handhold", "nom", "bite", "glomp", "slap", "kill",
-             "kick", "happy", "wink", "poke", "dance", "cringe"]
+async def cmd_code(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "code")
 
+async def cmd_nasa(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "nasa")
+
+async def cmd_wiki(u, c):
+    await do_search(u, c, " ".join(c.args) if c.args else "", "wiki")
+
+async def cmd_waifu(u: Update, c: ContextTypes.DEFAULT_TYPE):
+    cat = c.args[0] if c.args else "waifu"
+    valid = ["waifu","neko","shinobu","megumin","hug","pat","smile",
+             "wave","dance","kiss","blush","happy","wink","cry","cuddle","awoo"]
     if cat.lower() not in valid:
-        text = (
-            f"\n{S['sakura']} {bold_sans('WAIFU CATEGORIES')}\n"
-            f"{DOT_LN}\n\n"
-        )
-        for i in range(0, len(valid), 5):
-            row = valid[i:i+5]
-            text += "  " + "  ".join([f"{S['cherry']} {mono_font(c)}" for c in row]) + "\n"
-        text += f"\n{S['arrow']} {italic_sans('Usage')}: /waifu {mono_font('category')}\n{LINE2}"
-        await update.message.reply_text(text)
+        txt = f"\n{E['cherry']} {bold_s('WAIFU CATEGORIES')}\n{DL}\n\n"
+        for i in range(0, len(valid), 4):
+            txt += "  " + "  ".join([f"{E['cherry']} {mono_s(v)}" for v in valid[i:i+4]]) + "\n"
+        txt += f"\n{E['arrow']} /waifu {mono_s('category')}\n{L2}"
+        await u.message.reply_text(txt)
         return
-
-    await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
+    await u.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
     urls = await get_waifu_many(cat.lower(), 5)
-
     if not urls:
-        await update.message.reply_text(f"{S['cross']} {bold_sans('No images found')}")
+        await u.message.reply_text(f"{E['cross']} {bold_s('No images found')}")
+        return
+    for i, url in enumerate(urls):
+        cap = f"{E['cherry']} {bold_s(f'Waifu {cat.title()}')} #{i+1}\n{E['globe']} {bold_s('waifu.pics')}\n{L2}"
+        await dl.send_photo(c.bot, u.effective_chat.id, url, cap)
+        await asyncio.sleep(0.3)
+    kb = [[InlineKeyboardButton(f"{E['cherry']} More", callback_data=f"waifu|{cat}")]]
+    await c.bot.send_message(chat_id=u.effective_chat.id,
+        text=f"{E['check']} {bold_s('5 sent!')} {ital_s('More?')}",
+        reply_markup=InlineKeyboardMarkup(kb))
+
+
+async def cmd_lyrics(u: Update, c: ContextTypes.DEFAULT_TYPE):
+    """Get lyrics for a song"""
+    q = " ".join(c.args) if c.args else ""
+    if not q:
+        await u.message.reply_text(f"{E['arrow']} /lyrics {ital_s('song name')}")
         return
 
-    header = (
-        f"\n{S['sakura']} {bold_sans('WAIFU')} {S['dot']} {circled(cat.upper())}\n"
-        f"{SPARK}\n"
+    await u.message.reply_chat_action(ChatAction.TYPING)
+    msg = await u.message.reply_text(f"{E['bolt']} {bold_s('Finding lyrics')}...")
+
+    songs = await search_jiosaavn(q, 1)
+    if not songs:
+        await msg.edit_text(f"{E['cross']} {bold_s('Song not found')}")
+        return
+
+    song = songs[0]
+    sid = song.get("song_id", "")
+    title = song.get("title", "Unknown")
+    artist = song.get("artist", "Unknown")
+
+    lyrics = ""
+    if sid:
+        lyrics = await get_jiosaavn_lyrics(sid)
+
+    if not lyrics:
+        await msg.edit_text(f"{E['cross']} {bold_s('Lyrics not available for')} {ital_s(title)}")
+        return
+
+    txt = (
+        f"\n{T}\n"
+        f"{V}  {E['scroll']} {bold_s('LYRICS')} {E['scroll']}\n"
+        f"{B}\n\n"
+        f"{E['music']} {bold_s(title)}\n"
+        f"{E['mic']} {ital_s(artist)}\n\n"
+        f"{FL}\n\n"
+        f"{lyrics}\n\n"
+        f"{FL}\n"
+        f"{E['globe']} {bold_s('JioSaavn')} {E['india']}\n"
+        f"{L3}\n"
     )
-    await update.message.reply_text(header)
 
-    for i, url in enumerate(urls):
-        caption = (
-            f"{S['cherry']} {bold_sans(f'Waifu {cat.title()}')} #{i+1}\n"
-            f"{S['key']} {italic_sans('Category')}: {mono_font(cat)}\n"
-            f"{S['globe']} {italic_sans('Source')}: {bold_sans('waifu.pics')}\n"
-            f"{LINE2}"
-        )
-        await downloader.send_photo_telegram(ctx.bot, update.effective_chat.id, url, caption)
-        await asyncio.sleep(0.3)
-
-    # More button
-    kb = [[InlineKeyboardButton(f"{S['sakura']} More {cat.title()}", callback_data=f"waifu|{cat}")]]
-    await ctx.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=f"{S['check']} {bold_sans('5 images sent!')} {S['point']} {italic_sans('Want more?')}",
-        reply_markup=InlineKeyboardMarkup(kb)
-    )
-
-
-async def cmd_random(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    queries = ["nature", "space", "ocean", "sunset", "city", "mountain",
-               "abstract", "cyberpunk", "naruto", "galaxy", "flowers",
-               "aurora", "waterfall", "forest", "lightning", "robot"]
-    cats = ["images", "wallpapers", "anime", "nasa_img", "waifu"]
-
-    q = random.choice(queries)
-    c = random.choice(cats)
-
-    text = (
-        f"\n{S['dice']} {bold_sans('RANDOM DISCOVERY')}\n"
-        f"{S['mag']} {italic_sans(q)} {S['dot']} {italic_sans(c)}\n"
-        f"{SPARK}\n"
-    )
-    await update.message.reply_text(text)
-    await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
-
-    if c == "waifu":
-        urls = await get_waifu_many("waifu", 3)
-        results = [{"type": "image", "title": "Random Waifu", "image_url": u,
-                    "creator": "Waifu.pics", "source": "Waifu.pics", "license": "API"} for u in urls]
+    # Split if too long
+    if len(txt) > 4096:
+        parts = [txt[i:i+4000] for i in range(0, len(txt), 4000)]
+        await msg.delete()
+        for part in parts:
+            await c.bot.send_message(chat_id=u.effective_chat.id, text=part)
     else:
-        results = await _fetch_results(q, c)
+        await msg.edit_text(txt)
 
-    await send_results_to_telegram(ctx.bot, update.effective_chat.id, results, q, c)
+    # Also send the song
+    if song.get("audio_url") and song.get("image_url"):
+        cap = f"{E['music']} {bold_s(title)}\n{E['mic']} {ital_s(artist)}\n{ML}"
+        await dl.send_audio(c.bot, u.effective_chat.id, song["audio_url"], cap, title, artist, song["image_url"])
+
+
+async def cmd_random(u: Update, c: ContextTypes.DEFAULT_TYPE):
+    indian_q = ["Arijit Singh","Tum Hi Ho","Kal Ho Na Ho","Chaiyya Chaiyya",
+                "Dil Se","Kabira","Channa Mereya","Tere Bina","Kun Faya",
+                "Kesariya","Raataan Lambiyan","Pasoori","Excuses","Brown Munde",
+                "Laung Laachi","Naatu Naatu","Pushpa","Srivalli","Jai Ho"]
+    world_q = ["nature","space","galaxy","sunset","ocean","cyberpunk"]
+    cats = ["song","song","song","wallpapers","anime","images"]
+
+    q = random.choice(indian_q + world_q)
+    cat = "song" if q in indian_q else random.choice(cats)
+
+    txt = f"\n{E['dice']} {bold_s('RANDOM')}\n{E['mag']} {ital_s(q)}\n{SP}\n"
+    await u.message.reply_text(txt)
+    await u.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
+    results = await fetch(q, cat)
+    await send_results(c.bot, u.effective_chat.id, results, q, cat)
 
 
 # ── Callback Handler ──
 
-async def callback_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
+async def cb_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    data = q.data
     uid = update.effective_user.id
-    chat_id = update.effective_chat.id
+    cid = update.effective_chat.id
 
     if data == "menu_home":
-        await query.message.delete()
-        # Fake update for start
-        update.message = query.message
+        try: await q.message.delete()
+        except: pass
+        update.message = q.message
         await cmd_start(update, ctx)
 
     elif data == "menu_cat":
-        text = (
-            f"\n{TOP}\n"
-            f"{SIDE}  {S['folder']} {bold_sans('CATEGORIES')} {S['folder']}\n"
-            f"{BOT}\n\n"
-            f"{S['arrow']} {italic_sans('Choose a category:')}\n\n"
-            f"{LINE2}\n"
+        txt = (
+            f"\n{T}\n{V}  {E['folder']} {bold_s('CATEGORIES')} {E['folder']}\n{B}\n\n"
+            f"{E['arrow']} {ital_s('Choose:')}\n{L2}\n"
         )
         kb = [
             [
-                InlineKeyboardButton(f"{S['frame']} Images", callback_data="cat|images"),
-                InlineKeyboardButton(f"{S['wall']} Walls", callback_data="cat|wallpapers"),
-                InlineKeyboardButton(f"{S['anime']} Anime", callback_data="cat|anime"),
+                InlineKeyboardButton(f"{E['music']} Song", callback_data="cat|song"),
+                InlineKeyboardButton(f"{E['disk']} Album", callback_data="cat|album"),
+                InlineKeyboardButton(f"{E['mic']} Artist", callback_data="cat|artist"),
             ],
             [
-                InlineKeyboardButton(f"{S['film']} Movies", callback_data="cat|movies"),
-                InlineKeyboardButton(f"{S['vid']} Videos", callback_data="cat|videos"),
-                InlineKeyboardButton(f"{S['music']} Music", callback_data="cat|music"),
+                InlineKeyboardButton(f"{E['film']} Bollywood", callback_data="cat|bollywood"),
+                InlineKeyboardButton(f"{E['sitar']} Indian", callback_data="cat|indian_music"),
+                InlineKeyboardButton(f"{E['note']} Playlist", callback_data="cat|playlist"),
             ],
             [
-                InlineKeyboardButton(f"{S['books']} Books", callback_data="cat|books"),
-                InlineKeyboardButton(f"{S['code']} Code", callback_data="cat|code"),
-                InlineKeyboardButton(f"{S['robot']} Datasets", callback_data="cat|datasets"),
+                InlineKeyboardButton(f"{E['frame']} Images", callback_data="cat|images"),
+                InlineKeyboardButton(f"{E['wall']} Walls", callback_data="cat|wallpapers"),
+                InlineKeyboardButton(f"{E['anime']} Anime", callback_data="cat|anime"),
             ],
             [
-                InlineKeyboardButton(f"{S['rocket']} NASA", callback_data="cat|nasa_img"),
-                InlineKeyboardButton(f"{S['book']} Wiki", callback_data="cat|wiki"),
-                InlineKeyboardButton(f"{S['sakura']} Waifu", callback_data="cat|waifu"),
+                InlineKeyboardButton(f"{E['books']} Books", callback_data="cat|books"),
+                InlineKeyboardButton(f"{E['code']} Code", callback_data="cat|code"),
+                InlineKeyboardButton(f"{E['cherry']} Waifu", callback_data="cat|waifu"),
             ],
-            [InlineKeyboardButton(f"{S['arrow2']} Home", callback_data="menu_home")],
+            [
+                InlineKeyboardButton(f"{E['rocket']} NASA", callback_data="cat|nasa"),
+                InlineKeyboardButton(f"{E['book']} Wiki", callback_data="cat|wiki"),
+            ],
+            [InlineKeyboardButton(f"{E['arrow2']} Home", callback_data="menu_home")],
         ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
+        await q.edit_message_text(txt, reply_markup=InlineKeyboardMarkup(kb))
 
     elif data == "help":
         await cmd_help(update, ctx)
 
     elif data == "random":
-        await query.message.delete()
-        update.message = query.message
+        try: await q.message.delete()
+        except: pass
+        update.message = q.message
         await cmd_random(update, ctx)
 
     elif data.startswith("cat|"):
         cat = data.split("|")[1]
-        USER_DATA[uid] = {"cat": cat}
+        UD[uid] = {"cat": cat}
 
         if cat == "waifu":
-            text = (
-                f"\n{S['sakura']} {bold_sans('WAIFU IMAGES')}\n"
-                f"{DOT_LN}\n"
-                f"{S['arrow']} {italic_sans('Choose a category:')}\n\n"
-            )
-            valid = ["waifu", "neko", "shinobu", "megumin", "hug", "pat",
-                     "smile", "wave", "dance", "kiss", "blush", "happy",
-                     "wink", "cry", "cuddle", "awoo"]
+            valid = ["waifu","neko","shinobu","megumin","hug","pat",
+                     "smile","wave","dance","kiss","blush","happy","wink","cry"]
+            txt = f"\n{E['cherry']} {bold_s('WAIFU')}\n{DL}\n"
             kb = []
             for i in range(0, len(valid), 3):
-                row = [InlineKeyboardButton(f"{S['cherry']} {v.title()}", callback_data=f"waifu|{v}")
-                       for v in valid[i:i+3]]
-                kb.append(row)
-            kb.append([InlineKeyboardButton(f"{S['arrow2']} Back", callback_data="menu_cat")])
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
+                kb.append([InlineKeyboardButton(f"{E['cherry']} {v.title()}", callback_data=f"waifu|{v}") for v in valid[i:i+3]])
+            kb.append([InlineKeyboardButton(f"{E['arrow2']} Back", callback_data="menu_cat")])
+            await q.edit_message_text(txt, reply_markup=InlineKeyboardMarkup(kb))
         else:
-            text = (
-                f"\n{LINE2}\n"
-                f"{S['mag']} {bold_sans(cat.upper())} {bold_sans('SEARCH')}\n\n"
-                f"{S['arrow']} {italic_sans('Type your search query now!')}\n"
-                f"{S['dot']} {bold_italic('Results will appear as native Telegram media')}\n"
-                f"{LINE2}\n"
+            hints = {
+                "song":"Arijit Singh, Tum Hi Ho, Kesariya",
+                "album":"Kabir Singh, Rockstar, Aashiqui 2",
+                "artist":"Arijit Singh, Shreya Ghoshal, AP Dhillon",
+                "bollywood":"Dilwale, Jawan, Pathaan",
+                "indian_music":"ghazal, qawwali, classical",
+                "playlist":"romantic, party, sad",
+            }
+            hint = hints.get(cat, "anything you want")
+            txt = (
+                f"\n{L2}\n"
+                f"{E['mag']} {bold_s(cat.upper().replace('_',' '))}\n\n"
+                f"{E['arrow']} {ital_s('Type your query:')}\n"
+                f"{E['dot']} {ital_s('Example')}: {mono_s(hint)}\n"
+                f"{E['bolt']} {bital_s('Audio directly Telegram mein!')}\n"
+                f"{L2}\n"
             )
-            kb = [[InlineKeyboardButton(f"{S['arrow2']} Back", callback_data="menu_cat")]]
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(kb))
+            kb = [[InlineKeyboardButton(f"{E['arrow2']} Back", callback_data="menu_cat")]]
+            await q.edit_message_text(txt, reply_markup=InlineKeyboardMarkup(kb))
 
     elif data.startswith("waifu|"):
         wcat = data.split("|")[1]
-        await query.message.delete()
-        await ctx.bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_PHOTO)
-
+        try: await q.message.delete()
+        except: pass
+        await ctx.bot.send_chat_action(chat_id=cid, action=ChatAction.UPLOAD_PHOTO)
         urls = await get_waifu_many(wcat, 5)
         for i, url in enumerate(urls):
-            caption = (
-                f"{S['cherry']} {bold_sans(f'Waifu {wcat.title()}')} #{i+1}\n"
-                f"{S['key']} {mono_font(wcat)} {S['dot']} {italic_sans('waifu.pics')}\n"
-                f"{LINE2}"
-            )
-            await downloader.send_photo_telegram(ctx.bot, chat_id, url, caption)
+            cap = f"{E['cherry']} {bold_s(f'Waifu {wcat.title()}')} #{i+1}\n{E['globe']} {bold_s('waifu.pics')}\n{L2}"
+            await dl.send_photo(ctx.bot, cid, url, cap)
             await asyncio.sleep(0.3)
-
         kb = [
-            [InlineKeyboardButton(f"{S['sakura']} More {wcat.title()}", callback_data=f"waifu|{wcat}")],
-            [InlineKeyboardButton(f"{S['arrow2']} Categories", callback_data="cat|waifu")],
+            [InlineKeyboardButton(f"{E['cherry']} More", callback_data=f"waifu|{wcat}")],
+            [InlineKeyboardButton(f"{E['arrow2']} Back", callback_data="cat|waifu")],
         ]
-        await ctx.bot.send_message(
-            chat_id=chat_id,
-            text=f"{S['check']} {bold_sans('5 sent!')} {italic_sans('More?')}",
-            reply_markup=InlineKeyboardMarkup(kb)
-        )
+        await ctx.bot.send_message(chat_id=cid,
+            text=f"{E['check']} {bold_s('5 sent!')}",
+            reply_markup=InlineKeyboardMarkup(kb))
+
+    elif data.startswith("album|"):
+        album_id = data.split("|")[1]
+        try: await q.message.delete()
+        except: pass
+        await ctx.bot.send_chat_action(chat_id=cid, action=ChatAction.UPLOAD_PHOTO)
+
+        txt = f"{E['bolt']} {bold_s('Loading album songs')}..."
+        await ctx.bot.send_message(chat_id=cid, text=txt)
+
+        songs = await get_jiosaavn_album_songs(album_id)
+        if songs:
+            await send_results(ctx.bot, cid, songs, "album", "song")
+        else:
+            await ctx.bot.send_message(chat_id=cid, text=f"{E['cross']} {bold_s('Album songs not found')}")
 
     elif data.startswith("p|"):
-        # Pagination: p|category|query|page
         parts = data.split("|")
         if len(parts) >= 4:
             cat = parts[1]
-            q = parts[2]
+            query = parts[2]
             pg = int(parts[3])
-            await query.message.delete()
-            await ctx.bot.send_chat_action(chat_id=chat_id, action=ChatAction.UPLOAD_PHOTO)
-
-            loading = f"{S['bolt']} {bold_sans('Loading page')} {pg}..."
-            await ctx.bot.send_message(chat_id=chat_id, text=loading)
-
-            results = await _fetch_results(q, cat, pg)
-            await send_results_to_telegram(ctx.bot, chat_id, results, q, cat, pg)
+            try: await q.message.delete()
+            except: pass
+            await ctx.bot.send_chat_action(chat_id=cid, action=ChatAction.UPLOAD_PHOTO)
+            results = await fetch(query, cat, pg)
+            await send_results(ctx.bot, cid, results, query, cat, pg)
 
 
-# ── Text message handler (auto search) ──
+# ── Text Handler ──
 
 async def text_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
-    text = update.message.text.strip()
-    if text.startswith("/"):
+    txt = update.message.text.strip()
+    if txt.startswith("/"):
         return
 
     uid = update.effective_user.id
-    cat = USER_DATA.get(uid, {}).get("cat", "all")
+    cat = UD.get(uid, {}).get("cat", "song")  # Default = Indian song!
 
     await update.message.reply_chat_action(ChatAction.UPLOAD_PHOTO)
-
-    loading = (
-        f"\n{S['bolt']} {bold_sans('Searching')}...\n"
-        f"{S['mag']} {script_font(text)}\n"
-        f"{S['folder']} {italic_sans(cat)}\n"
-        f"{SPARK}\n"
-    )
+    loading = f"\n{E['bolt']} {bold_s('Searching')}...\n{E['mag']} {script_s(txt)}\n{SP}\n"
     msg = await update.message.reply_text(loading)
-
-    results = await _fetch_results(text, cat)
-    await msg.delete()
-    await send_results_to_telegram(ctx.bot, update.effective_chat.id, results, text, cat)
+    results = await fetch(txt, cat)
+    try: await msg.delete()
+    except: pass
+    await send_results(ctx.bot, update.effective_chat.id, results, txt, cat)
 
 
 # ══════════════════════════════════════════
-#  🌐 WEB SERVER (Render)
+#  🌐 RENDER WEB SERVER
 # ══════════════════════════════════════════
 
-async def health(request):
+async def health(req):
     return web.json_response({
-        "status": "alive",
-        "bot": "Ultimate Media Bot v2",
-        "features": "Images, Videos, Audio, Anime - ALL inside Telegram",
+        "status": "alive", "bot": "Indian Media Bot v3",
+        "features": "JioSaavn Songs, Bollywood, Anime, Books - ALL in Telegram",
         "time": datetime.now().isoformat()
     })
 
-async def webhook(request):
+async def webhook(req):
     try:
-        data = await request.json()
-        update = Update.de_json(data, request.app["bot"].bot)
-        await request.app["bot"].process_update(update)
-    except Exception as e:
-        logger.error(f"Webhook error: {e}")
+        data = await req.json()
+        update = Update.de_json(data, req.app["bot"].bot)
+        await req.app["bot"].process_update(update)
+    except Exception as ex:
+        logger.error(f"Webhook: {ex}")
     return web.Response(status=200)
 
 
@@ -1569,77 +1725,90 @@ async def webhook(request):
 async def post_init(app):
     cmds = [
         BotCommand("start", "🏠 Home"),
-        BotCommand("search", "🔍 Search all"),
+        BotCommand("song", "🎵 Indian Songs (JioSaavn)"),
+        BotCommand("album", "💿 Album Search"),
+        BotCommand("artist", "🎤 Artist Search"),
+        BotCommand("lyrics", "📜 Song Lyrics"),
+        BotCommand("bollywood", "🎬 Bollywood"),
+        BotCommand("hindi", "🇮🇳 Hindi Songs"),
+        BotCommand("punjabi", "🇮🇳 Punjabi Songs"),
+        BotCommand("tamil", "🇮🇳 Tamil Songs"),
+        BotCommand("telugu", "🇮🇳 Telugu Songs"),
+        BotCommand("playlist", "🎶 Playlists"),
+        BotCommand("search", "🔍 Search All"),
         BotCommand("image", "🖼️ Images"),
         BotCommand("wallpaper", "🌄 Wallpapers"),
         BotCommand("anime", "🌸 Anime"),
-        BotCommand("waifu", "🌸 Waifu images"),
-        BotCommand("movie", "🎬 Movies"),
-        BotCommand("video", "📹 Videos"),
-        BotCommand("music", "🎵 Music"),
-        BotCommand("book", "📚 Books"),
+        BotCommand("waifu", "🌸 Waifu Images"),
+        BotCommand("book", "📚 Free Books"),
         BotCommand("code", "💻 GitHub"),
-        BotCommand("dataset", "🤖 AI Datasets"),
         BotCommand("nasa", "🚀 NASA"),
         BotCommand("wiki", "📖 Wikipedia"),
         BotCommand("random", "🎲 Random"),
         BotCommand("help", "❓ Help"),
     ]
     await app.bot.set_my_commands(cmds)
-    logger.info(f"{S['check']} Bot commands set!")
+    logger.info(f"{E['check']} Bot ready!")
 
 
 def main():
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
-    # Commands
+    # Indian Music Commands
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("song", cmd_song))
+    app.add_handler(CommandHandler("album", cmd_album))
+    app.add_handler(CommandHandler("artist", cmd_artist))
+    app.add_handler(CommandHandler("bollywood", cmd_bollywood))
+    app.add_handler(CommandHandler("playlist", cmd_playlist))
+    app.add_handler(CommandHandler("lyrics", cmd_lyrics))
+    app.add_handler(CommandHandler("hindi", cmd_hindi))
+    app.add_handler(CommandHandler("punjabi", cmd_punjabi))
+    app.add_handler(CommandHandler("tamil", cmd_tamil))
+    app.add_handler(CommandHandler("telugu", cmd_telugu))
+
+    # World Media Commands
     app.add_handler(CommandHandler("search", cmd_search))
     app.add_handler(CommandHandler("image", cmd_image))
     app.add_handler(CommandHandler("wallpaper", cmd_wallpaper))
     app.add_handler(CommandHandler("anime", cmd_anime))
     app.add_handler(CommandHandler("waifu", cmd_waifu))
-    app.add_handler(CommandHandler("movie", cmd_movie))
-    app.add_handler(CommandHandler("video", cmd_video))
-    app.add_handler(CommandHandler("music", cmd_music))
     app.add_handler(CommandHandler("book", cmd_book))
     app.add_handler(CommandHandler("code", cmd_code))
-    app.add_handler(CommandHandler("dataset", cmd_dataset))
     app.add_handler(CommandHandler("nasa", cmd_nasa))
     app.add_handler(CommandHandler("wiki", cmd_wiki))
     app.add_handler(CommandHandler("random", cmd_random))
-    app.add_handler(CallbackQueryHandler(callback_handler))
+
+    app.add_handler(CallbackQueryHandler(cb_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
     if WEBHOOK_URL:
-        logger.info(f"🌐 WEBHOOK mode on port {PORT}")
-        web_app = web.Application()
-        web_app["bot"] = app
+        logger.info(f"🌐 WEBHOOK on port {PORT}")
+        wa = web.Application()
+        wa["bot"] = app
+        wa.router.add_get("/", health)
+        wa.router.add_get("/health", health)
+        wa.router.add_post(f"/webhook/{BOT_TOKEN}", webhook)
 
-        web_app.router.add_get("/", health)
-        web_app.router.add_get("/health", health)
-        web_app.router.add_post(f"/webhook/{BOT_TOKEN}", webhook)
-
-        async def on_startup(wa):
+        async def on_start(w):
             await app.initialize()
             await app.bot.set_webhook(f"{WEBHOOK_URL}/webhook/{BOT_TOKEN}",
-                                      allowed_updates=["message", "callback_query"])
+                                      allowed_updates=["message","callback_query"])
             await app.start()
-            logger.info(f"{S['check']} Webhook: {WEBHOOK_URL}/webhook/***")
+            logger.info(f"{E['check']} Webhook set!")
 
-        async def on_shutdown(wa):
-            await downloader.close()
+        async def on_stop(w):
+            await dl.close()
             await app.stop()
             await app.shutdown()
 
-        web_app.on_startup.append(on_startup)
-        web_app.on_shutdown.append(on_shutdown)
-        web.run_app(web_app, host="0.0.0.0", port=PORT)
+        wa.on_startup.append(on_start)
+        wa.on_shutdown.append(on_stop)
+        web.run_app(wa, host="0.0.0.0", port=PORT)
     else:
         logger.info("🖥️ POLLING mode")
-        app.run_polling(allowed_updates=["message", "callback_query"])
-
+        app.run_polling(allowed_updates=["message","callback_query"])
 
 if __name__ == "__main__":
     main()
