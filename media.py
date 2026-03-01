@@ -9,6 +9,7 @@ import aiohttp
 import html
 import random
 import string
+import tempfile
 from datetime import datetime
 from urllib.parse import quote_plus, urlencode
 from telegram import (
@@ -1778,60 +1779,54 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = user.first_name or "User"
     
     welcome = f"""
-{SYM['line5']}
-{SYM['line7']}  {SYM['crown']} {stylish_text('ULTIMATE MEDIA BOT', 'bold')} {SYM['crown']}
-{SYM['line6']}
+╔══════════════════════════════════╗
+┃  {SYM['crown']} 𝓤𝓛𝓣𝓘𝓜𝓐𝓣𝓔  𝓜𝓔𝓓𝓘𝓐  𝓑𝓞𝓣 {SYM['crown']}  ┃
+╚══════════════════════════════════╝
 
-{SYM['spark']} {stylish_text('Welcome', 'script')}, {stylish_text(name, 'bold')}! {SYM['spark']}
+{SYM['spark']} 𝓦𝓮𝓵𝓬𝓸𝓶𝓮, {stylish_text(name, 'bold')}! {SYM['spark']}
 
-{SYM['line4']}
+◈━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◈
 
-{SYM['robot']} {stylish_text('Main Features', 'bold_italic')}:
+{SYM['robot']} {stylish_text('FEATURES', 'double')}:
 
-{SYM['diamond']} {SYM['magnify']} {stylish_text('Universal Search', 'bold')} — Search across
-   {stylish_text('100+ open databases', 'italic')} simultaneously
+{SYM['fire']} 🔍 𝗨𝗻𝗶𝘃𝗲𝗿𝘀𝗮𝗹 𝗦𝗲𝗮𝗿𝗰𝗵
+   ↳ {stylish_text('100+ open databases', 'italic')} at once
 
-{SYM['diamond']} {SYM['film']} {stylish_text('Movies & Films', 'bold')} — Internet Archive,
-   Public Domain, TMDB & more
+{SYM['fire']} 🎬 𝗠𝗼𝘃𝗶𝗲𝘀 & 𝗙𝗶𝗹𝗺𝘀
+   ↳ Archive · TMDB · Public Domain
 
-{SYM['diamond']} {SYM['camera']} {stylish_text('Images & Photos', 'bold')} — Openverse (800M+),
-   Unsplash, NASA, Museums
+{SYM['fire']} 🖼️ 𝗜𝗺𝗮𝗴𝗲𝘀 & 𝗣𝗵𝗼𝘁𝗼𝘀
+   ↳ Openverse · NASA · Museums (800M+)
 
-{SYM['diamond']} {SYM['anime']} {stylish_text('Anime Database', 'bold')} — MAL, AniList,
-   Kitsu, Waifu pics
+{SYM['fire']} 🌸 𝗔𝗻𝗶𝗺𝗲 𝗗𝗮𝘁𝗮𝗯𝗮𝘀𝗲
+   ↳ MAL · AniList · Kitsu
 
-{SYM['diamond']} {SYM['music']} {stylish_text('Music & Audio', 'bold')} — FMA, Jamendo,
-   Freesound, BBC SFX
+{SYM['fire']} 🎵 𝗠𝘂𝘀𝗶𝗰 & 𝗔𝘂𝗱𝗶𝗼
+   ↳ FMA · Jamendo · Freesound
 
-{SYM['diamond']} {SYM['book']} {stylish_text('Books & Papers', 'bold')} — Gutenberg, Open
-   Library, arXiv, Google Books
+{SYM['fire']} 📚 𝗕𝗼𝗼𝗸𝘀 & 𝗣𝗮𝗽𝗲𝗿𝘀
+   ↳ Gutenberg · Open Library · arXiv
 
-{SYM['diamond']} {SYM['game']} {stylish_text('Games & Assets', 'bold')} — itch.io, OpenGameArt,
-   RAWG, 3D models
+{SYM['fire']} 💻 𝗖𝗼𝗱𝗲 & 𝗗𝗮𝘁𝗮𝘀𝗲𝘁𝘀
+   ↳ GitHub · HuggingFace · Kaggle
 
-{SYM['diamond']} {SYM['code']} {stylish_text('Code & Software', 'bold')} — GitHub, GitLab,
-   F-Droid
+{SYM['fire']} 🧊 𝟯𝗗 𝗠𝗼𝗱𝗲𝗹𝘀
+   ↳ Sketchfab · Thingiverse · NASA 3D
 
-{SYM['diamond']} {SYM['ai']} {stylish_text('AI Datasets', 'bold')} — Hugging Face, Kaggle,
-   Google Datasets
-
-{SYM['diamond']} {SYM['three_d']} {stylish_text('3D Models', 'bold')} — Sketchfab, Thingiverse,
-   NASA 3D, Poly Haven
-
-{SYM['line4']}
+◈━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◈
 
 {SYM['arrow']} {stylish_text('Quick Start', 'bold')}:
-   {SYM['dot']} Type any search query directly
-   {SYM['dot']} Use /search [query] for quick search
-   {SYM['dot']} Use /categories to browse
-   {SYM['dot']} Use /help for all commands
+   {SYM['dot']} 𝗝𝘂𝘀𝘁 𝘁𝘆𝗽𝗲 𝗮𝗻𝘆𝘁𝗵𝗶𝗻𝗴 𝘁𝗼 𝘀𝗲𝗮𝗿𝗰𝗵!
+   {SYM['dot']} /search [query] — quick search
+   {SYM['dot']} /categories — browse by type
+   {SYM['dot']} /help — all commands
 
-{SYM['line4']}
+◈━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━◈
 
 {SYM['globe']} {stylish_text('100+ Open Databases', 'bold')} {SYM['dot']} {stylish_text('Billions of Files', 'italic')}
-{SYM['infinity']} {stylish_text('Unlimited & Free Forever', 'bold_italic')}
+{SYM['infinity']} {stylish_text('Free Forever', 'bold_italic')} {SYM['diamond']} {stylish_text('Zero Limits', 'bold_italic')}
 
-{SYM['line3']}
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 """
     
     keyboard = [
@@ -2156,6 +2151,130 @@ async def all_databases_command(update: Update, context: ContextTypes.DEFAULT_TY
             )
 
 
+
+# ═══════════════════════════════════════════════════════════
+# 📨 SEND FILE TO CHAT — Memory-Safe Logic for Render
+# ═══════════════════════════════════════════════════════════
+
+TELEGRAM_MAX_BYTES = 50 * 1024 * 1024  # 50 MB hard limit
+
+async def send_file_to_chat(context, chat_id, result: dict):
+    """
+    Send a media file to a Telegram chat.
+    Strategy:
+      1. Try direct URL send via Telegram API (no disk usage).
+      2. On failure → temp download → upload → IMMEDIATE os.remove().
+    """
+    url      = result.get("download") or result.get("url", "")
+    title    = (result.get("title") or "media")[:60]
+    r_type   = result.get("type", "media")
+    caption  = (
+        f"{SYM['film']} {stylish_text(title, 'bold')}\n"
+        f"{SYM['dot']} {stylish_text('Source', 'italic')}: {result.get('source', 'Unknown')}\n"
+        f"{SYM['link']} {url}"
+    )
+
+    if not url:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"{SYM['cross']} {stylish_text('No downloadable link found for this item.', 'bold')}"
+        )
+        return
+
+    # ── Helpers ────────────────────────────────────────────
+    async def _try_direct():
+        """Attempt to send using direct URL (zero disk usage)."""
+        try:
+            if r_type in ("image", "wallpaper", "artwork"):
+                await context.bot.send_photo(chat_id=chat_id, photo=url, caption=caption)
+            elif r_type in ("audio", "music"):
+                await context.bot.send_audio(chat_id=chat_id, audio=url, caption=caption)
+            elif r_type in ("video", "movies", "anime"):
+                await context.bot.send_video(chat_id=chat_id, video=url, caption=caption)
+            else:
+                await context.bot.send_document(chat_id=chat_id, document=url, caption=caption)
+            return True
+        except Exception as e:
+            logger.warning(f"Direct URL send failed ({e}), switching to temp download...")
+            return False
+
+    async def _try_temp_download():
+        """Download to /tmp, upload to Telegram, delete immediately."""
+        tmp_path = None
+        try:
+            async with aiohttp.ClientSession() as sess:
+                async with sess.get(url, timeout=aiohttp.ClientTimeout(total=120)) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"HTTP {resp.status}")
+                    # Check Content-Length before downloading
+                    content_length = int(resp.headers.get("Content-Length", 0))
+                    if content_length and content_length > TELEGRAM_MAX_BYTES:
+                        size_mb = content_length / (1024 * 1024)
+                        await context.bot.send_message(
+                            chat_id=chat_id,
+                            text=(
+                                f"{SYM['cross']} {stylish_text('File Too Large!', 'bold')}\n\n"
+                                f"{SYM['dot']} Size: {size_mb:.1f} MB\n"
+                                f"{SYM['dot']} Telegram bot limit: 50 MB\n\n"
+                                f"{SYM['link']} {stylish_text('Direct download link:', 'italic')}\n{url}"
+                            )
+                        )
+                        return
+
+                    # Write to a temp file
+                    suffix = os.path.splitext(url.split("?")[0])[-1] or ".bin"
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tf:
+                        tmp_path = tf.name
+                        downloaded = 0
+                        async for chunk in resp.content.iter_chunked(1024 * 256):
+                            downloaded += len(chunk)
+                            if downloaded > TELEGRAM_MAX_BYTES:
+                                raise Exception("File exceeds 50 MB during download")
+                            tf.write(chunk)
+
+            # Upload from temp file
+            with open(tmp_path, "rb") as f:
+                if r_type in ("image", "wallpaper", "artwork"):
+                    await context.bot.send_photo(chat_id=chat_id, photo=f, caption=caption)
+                elif r_type in ("audio", "music"):
+                    await context.bot.send_audio(chat_id=chat_id, audio=f, caption=caption)
+                elif r_type in ("video", "movies", "anime"):
+                    await context.bot.send_video(chat_id=chat_id, video=f, caption=caption)
+                else:
+                    await context.bot.send_document(chat_id=chat_id, document=f, caption=caption)
+
+        except Exception as e:
+            logger.error(f"Temp download/upload failed: {e}")
+            size_info = ""
+            if "50 MB" in str(e):
+                size_info = (
+                    f"\n\n{SYM['cross']} {stylish_text('File exceeds Telegram 50 MB limit.', 'bold')}\n"
+                    f"{SYM['link']} Use the link to download directly:\n{url}"
+                )
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"{SYM['cross']} {stylish_text('Failed to send file.', 'bold')}\n"
+                    f"{SYM['dot']} {str(e)[:200]}{size_info}\n\n"
+                    f"{SYM['link']} {stylish_text('Direct link:', 'italic')} {url}"
+                ),
+                disable_web_page_preview=True
+            )
+        finally:
+            # ✅ ALWAYS delete temp file immediately — zero permanent storage
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                    logger.info(f"Temp file deleted: {tmp_path}")
+                except Exception as del_err:
+                    logger.error(f"Failed to delete temp file {tmp_path}: {del_err}")
+
+    # ── Main flow ──────────────────────────────────────────
+    success = await _try_direct()
+    if not success:
+        await _try_temp_download()
+
+
 def format_search_results(results, query, category, page=1):
     """Format search results into stylish message"""
     if not results:
@@ -2212,12 +2331,25 @@ def format_search_results(results, query, category, page=1):
    {SYM['dot']} {SYM['globe']} {source}
 """
         
+        result_idx = i - 1   # 0-based index into results list
+        row = []
         if url:
-            btn_label = f"{icon} {title[:25]}..."
-            buttons.append([InlineKeyboardButton(btn_label, url=url)])
-            
-            if r.get("download"):
-                buttons.append([InlineKeyboardButton(f"📥 Download: {title[:20]}...", url=r["download"])])
+            btn_label = f"{icon} {title[:22]}…"
+            row.append(InlineKeyboardButton(btn_label, url=url))
+        
+        # "Send to Chat" button — uses download URL if available, else page URL
+        send_url = r.get("download") or url
+        if send_url:
+            row.append(InlineKeyboardButton(
+                f"📨 Send",
+                callback_data=f"send_{result_idx}"
+            ))
+        
+        if row:
+            buttons.append(row)
+        
+        if r.get("download") and r.get("download") != url:
+            buttons.append([InlineKeyboardButton(f"📥 Download: {title[:20]}…", url=r["download"])])
     
     text += f"""
 {SYM['line4']}
@@ -2287,6 +2419,7 @@ async def perform_search(update: Update, context: ContextTypes.DEFAULT_TYPE, que
         "last_query": query,
         "last_category": category,
         "last_page": page,
+        "last_results": results,   # ← cached for "Send to Chat" callbacks
     }
     
     keyboard = InlineKeyboardMarkup(buttons) if buttons else None
@@ -2632,6 +2765,49 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             search_query = unquote_plus(parts[2])
             page_num = int(parts[3])
             await perform_search(update, context, search_query, category, page_num)
+
+    elif data.startswith("send_"):
+        # ── Send media file directly to this chat ──────────
+        await query.answer("⏳ Sending file…", show_alert=False)
+        try:
+            idx = int(data[5:])
+        except ValueError:
+            await query.message.reply_text(f"{SYM['cross']} Invalid send request.")
+            return
+
+        state   = USER_STATES.get(user_id, {})
+        results = state.get("last_results", [])
+
+        if not results or idx >= len(results):
+            await query.message.reply_text(
+                f"{SYM['cross']} {stylish_text('Result expired!', 'bold')}\n"
+                f"{SYM['dot']} Please search again and retry."
+            )
+            return
+
+        result  = results[idx]
+        chat_id = query.message.chat_id
+
+        # Notify user we're working on it
+        status_msg = await query.message.reply_text(
+            f"{SYM['lightning']} {stylish_text('Fetching & sending file…', 'bold')}\n"
+            f"{SYM['dot']} {stylish_text('Please wait', 'italic')} — this may take a moment."
+        )
+
+        try:
+            await send_file_to_chat(context, chat_id, result)
+        except Exception as e:
+            logger.error(f"send_file_to_chat error: {e}")
+            await query.message.reply_text(
+                f"{SYM['cross']} {stylish_text('Error sending file.', 'bold')}\n"
+                f"{SYM['dot']} {str(e)[:300]}"
+            )
+        finally:
+            # Clean up status message
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
 
 
 # ─── Text Message Handler (auto-search) ───
